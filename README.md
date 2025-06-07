@@ -2,6 +2,16 @@
 
 Debug logging for Obsidian plugins with customizable format templates, namespace support, and runtime configuration.
 
+## Features
+
+- Always shows errors
+- Stack trace parsing for method names
+- Class registration for minified code
+- Customizable log format templates
+- Separate callback context templates
+- Runtime configuration via browser console
+- Safe object logging
+
 ## Quick start for users wanting to debug
 
 To debug any plugin that uses this logger system, open the Developer Console `(Ctrl+Shift+I)` and use these commands:
@@ -41,7 +51,7 @@ git submodule add https://github.com/AMC-Albert/obsidian-logger.git
 ### Usage
 
 ```typescript
-import { initDebug, debug, registerLoggerClass, setMessageColor } from './obsidian-logger';
+import { initDebug, debug, registerLoggerClass } from './obsidian-logger';
 
 // In your main plugin class constructor
 initDebug(this);
@@ -135,16 +145,6 @@ setMessageColor('#ffffff');  // White messages (default)
 **Log Output Structure:**
 - **Prefix**: Colored according to log level (debug/info/warn/error)
 - **Message**: Colored according to `messageColor` setting (default: white)
-
-## Features
-
-- Always shows errors
-- Stack trace parsing for method names
-- Class registration for minified code
-- Customizable log format templates
-- Separate callback context templates
-- Runtime configuration via browser console
-- Safe object logging
 
 ## Object Logging
 
