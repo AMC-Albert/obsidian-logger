@@ -118,7 +118,7 @@ function shouldLog(level: LogLevel): boolean {
 	if (level === 'error') return true; // Errors always show
 	
 	try {
-		const debugController = (window as any).DEBUG;
+		const debugController = window.DEBUG;
 		if (!debugController?.enabled?.(getNamespace())) return false;
 		
 		const currentLevel = debugController.getLevel?.(getNamespace()) as LogLevel;

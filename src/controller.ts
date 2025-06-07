@@ -1,19 +1,35 @@
 import type { LogLevel } from './types';
 import { getNamespace, getConfig } from './config';
 
+// Define an interface for the DEBUG object
+interface DebugAPI {
+	enable: (ns: string, level?: LogLevel) => string;
+	disable: (ns: string) => string;
+	enabled: (ns: string) => boolean;
+	setLevel: (ns: string, level: LogLevel) => string;
+	getLevel: (ns: string) => LogLevel | null;
+}
+
+// Extend the Window interface to include the DEBUG property
+declare global {
+	interface Window {
+		DEBUG?: DebugAPI;
+	}
+}
+
 // Initialize debug controller
 export function initializeDebugSystem() {
 	if (typeof window === 'undefined') return;
 	
 	try {
-		const raw = (window as any).DEBUG;
+		const raw = window.DEBUG;
 		const origEnable = raw?.enable?.bind(raw) ?? (() => '');
 		const origDisable = raw?.disable?.bind(raw) ?? (() => '');
 		const origEnabled = raw?.enabled?.bind(raw) ?? (() => false);
 		const origSetLevel = raw?.setLevel?.bind(raw) ?? (() => '');
 		const origGetLevel = raw?.getLevel?.bind(raw) ?? (() => null);
 		
-		(window as any).DEBUG = {
+		window.DEBUG = {
 			enable(ns: string, level: LogLevel = 'debug'): string {
 				if (ns === getNamespace() || ns === '*') {
 					const config = getConfig();

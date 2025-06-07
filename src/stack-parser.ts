@@ -103,7 +103,7 @@ export function getCallerInfo(): string {
 				/emitWrapper/,           // EventEmitter wrapper functions
 				/processNextTick/,       // process.nextTick callbacks
 			];
-					// Check if any line in the stack trace suggests a callback context
+		// Check if any line in the stack trace suggests a callback context
 		const hasCallbackContext = relevantLines.some(stackLine => 
 			callbackPatterns.some(pattern => pattern.test(stackLine))
 		);
