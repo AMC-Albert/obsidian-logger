@@ -12,7 +12,7 @@
     "typescript"
   ],
   "author": "Albert O'Shea",
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/AMC-Albert/obsidian-logger.git"
