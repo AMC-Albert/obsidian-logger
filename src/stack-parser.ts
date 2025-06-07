@@ -157,6 +157,21 @@ export function formatPrefixCustom(component?: string, contextInstance?: any, me
 	let methodName = '';
 	let isCallbackContext = false;
 	
+	// Special case: component and methodOverride (both strings) -> straightforward prefix
+	if (component && typeof contextInstance === 'string' && message === undefined) {
+		const namespace = getNamespace();
+		const className = component;
+		const methodName = contextInstance;
+		const template = getFormatTemplate();
+		let result = template.replace('{namespace}', namespace).replace('{class}', className);
+		if (template.includes('{method}')) {
+			result = result.replace('{method}', methodName);
+		}
+		// Remove {message} placeholder
+		result = result.replace('{message}', '').trim();
+		// Clean up whitespace
+		return result.replace(/\s+/g, ' ').trim();
+	}
 	// Get caller information
 	if (contextInstance) {
 		const registeredName = getRegisteredClassName(contextInstance);

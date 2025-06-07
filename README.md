@@ -61,6 +61,19 @@ registerLoggerClass(this, 'MyPluginClass');
 debug(this, 'Message'); // → [plugin-id] MyPluginClass.methodName: Message
 ```
 
+### Static (utility) function logging
+
+For standalone functions or modules (no class instance), provide component and method names:
+
+```typescript
+import { debug } from './obsidian-logger';
+
+debug('DateParser', 'parseDate', 'Parsing text:', text);
+// → [plugin-id] DateParser.parseDate: Parsing text: "Today"  
+```
+
+This ensures the correct `Class.method` prefix even without `this` context.
+
 ### Registering Multiple Classes
 
 ```typescript
@@ -148,13 +161,11 @@ setMessageColor('#ffffff');  // White messages (default)
 
 ## Object Logging
 
-The debug system safely handles complex objects without circular reference errors:
+The debug system safely handles complex objects without circular reference errors using improved `safeStringify`:
 
 ```typescript
 // These all work safely:
-debug(this, 'App object:', this.app);           // Obsidian app object
-debug(this, 'File:', file);                     // TFile object
-debug(this, 'Complex data:', someComplexObj);   // Any object
+debug(this, 'App object:', this.app);           // → safe, readable output
+debug(this, 'File info', file);                 // → TFile{name: "2025-06-07.md", path: "/..."}
+debug(this, 'Complex data:', someComplexObj);   // → Object summary without circular refs
 ```
-
-Objects are summarized to show useful information without overwhelming the console or causing circular reference errors.

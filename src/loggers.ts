@@ -10,35 +10,47 @@ function safeStringify(obj: any, maxDepth = 3): string {
 	function stringifyWithCircularCheck(value: any, depth = 0): string {
 		// Handle primitives
 		if (value === null) return 'null';
+		if (value === undefined) return 'undefined';
 		if (typeof value !== 'object') return String(value);
 		
 		// Check for circular reference
 		if (seen.has(value)) return '[Circular]';
-		
-		// Handle arrays
-		if (Array.isArray(value)) {
-			if (depth >= maxDepth) return '[Array...]';
-			seen.add(value);
-			try {
-				const items = value.slice(0, 5).map(item => stringifyWithCircularCheck(item, depth + 1));
-				const result = `[${items.join(', ')}${value.length > 5 ? `, ...${value.length - 5} more` : ''}]`;
-				seen.delete(value);
-				return result;
-			} catch {
-				seen.delete(value);
-				return '[Array]';
-			}
-		}
-		
-		// Handle objects
-		if (depth >= maxDepth) return '[Object...]';
 		seen.add(value);
 		
 		try {
+			// Handle arrays
+			if (Array.isArray(value)) {
+				if (depth >= maxDepth) return '[Array...]';
+				const items = value.slice(0, 5).map(item => stringifyWithCircularCheck(item, depth + 1));
+				const result = `[${items.join(', ')}${value.length > 5 ? `, ...${value.length - 5} more` : ''}]`;
+				return result;
+			}
+			
 			// For DOM elements, return a simple representation
 			if (value.nodeType && value.nodeName) {
-				seen.delete(value);
 				return `<${value.nodeName.toLowerCase()}${value.id ? ` id="${value.id}"` : ''}${value.className ? ` class="${value.className}"` : ''}>`;
+			}
+			
+			// Handle objects
+			if (depth >= maxDepth) return '[Object...]';
+			
+			// Try JSON.stringify first for simple objects (but with a separate seen set)
+			try {
+				const tempSeen = new WeakSet();
+				const jsonResult = JSON.stringify(value, (key, val) => {
+					// Handle circular references in JSON.stringify with separate tracking
+					if (typeof val === 'object' && val !== null) {
+						if (tempSeen.has(val)) return '[Circular]';
+						tempSeen.add(val);
+					}
+					return val;
+				});
+				// If JSON.stringify succeeded and produced reasonable output, use it
+				if (jsonResult && jsonResult !== '{}' && !jsonResult.includes('[Circular]')) {
+					return jsonResult;
+				}
+			} catch (jsonError) {
+				// JSON.stringify failed, fall back to manual approach
 			}
 			
 			// Check if this object has a registered class name first
@@ -52,7 +64,6 @@ function safeStringify(obj: any, maxDepth = 3): string {
 						if (keyProps.length >= 3) break;
 					}
 				}
-				seen.delete(value);
 				return `${registeredName}${keyProps.length > 0 ? ` {${keyProps.join(', ')}}` : ''}`;
 			}
 			
@@ -67,26 +78,34 @@ function safeStringify(obj: any, maxDepth = 3): string {
 						if (keyProps.length >= 3) break;
 					}
 				}
-				seen.delete(value);
 				return `${className}${keyProps.length > 0 ? ` {${keyProps.join(', ')}}` : ''}`;
 			}
 			
-			// For plain objects, show a few properties
-			const keys = Object.keys(value).slice(0, 3);
-			const props = keys.map(key => {
+			// For plain objects, show all properties in a JSON-like format
+			const keys = Object.keys(value);
+			if (keys.length === 0) {
+				return '{}';
+			}
+			
+			// For small objects, show all properties; for larger ones, limit to first few
+			const keysToShow = keys.length <= 5 ? keys : keys.slice(0, 5);
+			const props = keysToShow.map(key => {
 				try {
 					const val = stringifyWithCircularCheck(value[key], depth + 1);
-					return `${key}: ${val}`;
+					// Quote strings for better readability
+					const quotedKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `"${key}"`;
+					return `${quotedKey}: ${val}`;
 				} catch {
 					return `${key}: [Error]`;
 				}
 			});
 			
-			seen.delete(value);
-			return `{${props.join(', ')}${Object.keys(value).length > 3 ? ', ...' : ''}}`;
+			const ellipsis = keys.length > 5 ? ', ...' : '';
+			return `{${props.join(', ')}${ellipsis}}`;
 		} catch {
-			seen.delete(value);
 			return '[Object]';
+		} finally {
+			seen.delete(value);
 		}
 	}
 	
@@ -139,12 +158,20 @@ function log(level: LogLevel, ...args: any[]): void {
 	
 	const { component, contextInstance, logArgs } = parseLogArgs(args);
 	
-	// Combine all log arguments into a single message string with safe stringification
-	const message = logArgs.map(arg => 
-		typeof arg === 'object' && arg !== null ? safeStringify(arg) : String(arg)
-	).join(' ');
-		// Get the prefix without the message
-	const prefixOnly = formatPrefixOnly(component, contextInstance);
+	// Determine prefix and message, supporting component+method overrides for static functions
+	let prefixOnly: string;
+	let messageStr: string;
+	// If first logArg is a method name override (static function), use custom prefix template
+	if (component && logArgs.length > 0 && typeof logArgs[0] === 'string' && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(logArgs[0])) {
+		const methodOverride = logArgs[0] as string;
+		const remaining = logArgs.slice(1);
+		prefixOnly = formatPrefixCustom(component, methodOverride);
+		messageStr = remaining.map(arg => typeof arg === 'object' && arg !== null ? safeStringify(arg) : String(arg)).join(' ');
+	} else {
+		// Default behavior: use contextInstance or registered class and method from stack
+		messageStr = logArgs.map(arg => typeof arg === 'object' && arg !== null ? safeStringify(arg) : String(arg)).join(' ');
+		prefixOnly = formatPrefixOnly(component, contextInstance);
+	}
 	const colors = getConfig().debugColors;
 	const messageColor = getConfig().messageColor;
 	
@@ -161,10 +188,10 @@ function log(level: LogLevel, ...args: any[]): void {
 	};
 	
 	// Log with separate styles for prefix and message
-	if (message) {
-		consoleMethods[level](`%c${prefixOnly} %c${message}`, prefixStyle, messageStyle);
+	if (messageStr) {
+		consoleMethods[level](`%c${prefixOnly} %c${messageStr}`, prefixStyle, messageStyle);
 	} else {
-		// If no message, just log the prefix with its style
+		// If no message, just log the prefix
 		consoleMethods[level](`%c${prefixOnly}`, prefixStyle);
 	}
 }
