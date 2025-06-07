@@ -1,222 +1,107 @@
-// Helper function to clean up minified class/method names for better readability
-function cleanMinifiedName(name: string): string {
-	if (!name) return name;
-	
-	// Handle Class.method patterns
+// Simplified helper function to extract class and method if present
+// No longer tries to "clean" minified names, assumes names are preserved.
+function extractClassAndMethod(name: string): { className?: string, methodName?: string } {
+	if (!name) return {};
 	if (name.includes('.')) {
 		const parts = name.split('.');
-		const className = parts[0];
-		const methodName = parts[1];
-		
-		// If class looks minified (short or has special chars) and method is meaningful, just return method
-		const isMinifiedClass = 
-			className.match(/^[A-Za-z$_]{1,3}$/) ||          // 1-3 letters/symbols: Ln, $t, _n
-			className.match(/^[A-Za-z]\d*$/) ||              // Letter + numbers: A1, B2  
-			className.includes('$') ||                       // Contains dollar sign
-			className.includes('_');                         // Contains underscore
-		
-		if (isMinifiedClass && methodName && methodName.length > 2) {
-			return methodName;
-		}
-		
-		// Keep meaningful class names
-		if (className.length > 3 && !isMinifiedClass) {
-			return name;
-		}
-		
-		// Return just the method name for other minified cases
-		return methodName || name;
+		// Handles cases like "ClassName.methodName" or "Possibly.Nested.ClassName.methodName"
+		// Takes the last part as method, everything before as class.
+		const methodName = parts.pop();
+		const className = parts.join('.');
+		return { className, methodName };
 	}
-	
-	return name;
+	// If no '.', assume it's a standalone function/method name
+	return { methodName: name };
 }
 
-// Helper function to determine if a name looks like meaningful context
-function isMeaningfulContext(name: string): boolean {
-	if (!name || name.length < 2) return false;
-	
-	// Skip generic or unhelpful names
-	const skipNames = ['eval', 'anonymous', 'apply', 'call', 'pt', 'bt', 'wt', 'yt', 'et'];
-	if (skipNames.includes(name)) return false;
-	
-	// Skip very short minified names when standalone
-	if (name.length <= 2 && name.match(/^[A-Za-z]{1,2}$/)) return false;
-	
+// Simplified helper function to determine if a name looks like meaningful context
+// Now primarily just checks for empty or very generic/internal JS names.
+function isMeaningfulContext(name?: string): boolean {
+	if (!name || name.length < 1) return false;
+
+	// Skip generic or unhelpful names that might still appear
+	const skipNames = ['eval', 'anonymous', 'apply', 'call', 'constructor']; // Added 'constructor'
+	if (skipNames.includes(name.toLowerCase())) return false; // Case-insensitive check
+
+	// Avoid returning just "Object" if that's all that was parsed (e.g. Object.eval)
+	if (name === 'Object') return false;
+
 	return true;
 }
 
-// Helper function to extract caller information from stack trace
-export function getCallerInfo(): string {
+// Simplified helper function to extract caller information from stack trace
+export function getCallerInfo(): { className?: string, methodName?: string, isCallback: boolean } {
 	try {
 		const stack = new Error().stack;
-		if (!stack) return '';
-		
+		if (!stack) return { isCallback: false };
+
 		const lines = stack.split('\n');
-		
-		// Filter out internal debug functions
-	   const relevantLines = lines.slice(1).filter(line => {
+
+		// Filter out internal logger functions and direct calls to debug/log/warn/error
+		const relevantLines = lines.slice(1).filter(line => {
 			const trimmed = line.trim();
-			
-			// Skip internal debug system functions
-			if (trimmed.includes('getCallerInfo') || 
-				trimmed.includes('formatPrefix') ||
-				trimmed.includes('simple-debug')) {
+			// Skip lines related to the logger's own functions
+			if (trimmed.includes('getCallerInfo') ||
+				trimmed.includes('formatPrefix') || // Catches formatPrefixOnly and formatPrefixCustom
+				trimmed.includes('simple-debug') || // Assuming 'simple-debug' is an internal marker
+				trimmed.match(/at\s+(log|debug|info|warn|error|logger)\s*\(/i)) { // Logger function calls
 				return false;
 			}
-			
-			// Skip debug function calls
-			if (trimmed.match(/at\s+(debug|info|warn|error)\s*\(/)) {
-				return false;
+			// Skip lines that are not part of the plugin's own code (heuristic)
+			// This helps avoid pulling context from Obsidian's internal calls or other plugins if possible
+			// Modify 'plugin:sidecars' if your plugin ID in stack traces is different
+			// Keep eval lines from the plugin as they might be part of callbacks
+			if (!trimmed.includes('(plugin:sidecars:') && !(trimmed.includes('at eval (') && trimmed.includes('(plugin:sidecars:'))) {
+				// If it's an eval line NOT from our plugin, skip it.
+				if (trimmed.includes('at eval (')) {
+					return false;
+				}
 			}
-			
 			return true;
 		});
-		// If any EventEmitter anonymous callbacks exist, treat as callback context
-		if (relevantLines.some(line => line.includes('EventEmitter.<anonymous>'))) {
-			return 'callback';
-		}
-		// If any EventEmitter emit calls are present, treat as callback context
-		if (relevantLines.some(line => line.includes('emit (') || line.includes('EventEmitter.emit'))) {
-			return 'callback';
-		}
-	   // Special case: if first relevant frame is Class.eval, treat as callback
-	   const first = relevantLines[0]?.trim();
-	   const evalMatch = first?.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+)\.eval\s*\(/);
-	   if (evalMatch) {
-		   return `${evalMatch[1]}:callback`;
-	   }
-	   // Find the most meaningful caller information
-	   for (const line of relevantLines.slice(0, 5)) {
-			if (!line?.trim()) continue;
-			// First check for callback patterns in the stack trace
-			const callbackPatterns = [
-				/_onTimeout\s*\(/,       // setTimeout callbacks
-				/_onImmediate\s*\(/,     // setImmediate callbacks  
-				/\.then\s*\(/,           // Promise then callbacks
-				/\.catch\s*\(/,          // Promise catch callbacks
-				/\.finally\s*\(/,        // Promise finally callbacks
-				/EventEmitter\.emit/,    // EventEmitter callbacks
-				/\.emit\s*\(/,           // Custom EventEmitter emit calls
-				/processTimers/,         // Timer processing
-				/processImmediate/,      // Immediate processing
-				/listOnTimeout/,         // Timer list processing
-				/emitWrapper/,           // EventEmitter wrapper functions
-				/processNextTick/,       // process.nextTick callbacks
-			];
-		// Check if any line in the stack trace suggests a callback context
-		const hasCallbackContext = relevantLines.some(stackLine => 
-			callbackPatterns.some(pattern => pattern.test(stackLine))
-		);
-				if (hasCallbackContext) {
-			// Look for anonymous functions first (these are typically event listeners)
-			if (line.includes('<anonymous>')) {
-				// Try to extract the class name from the anonymous function context
-				const match = line.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+)\.<anonymous>/);
-				if (match) {
-					const className = match[1];
-					// If it's EventEmitter.<anonymous>, look deeper in the stack for the real class
-					if (className === 'EventEmitter') {
-						// Look for the class that set up the event listener
-						for (const stackLine of relevantLines) {
-							const deepMatch = stackLine.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+)\.setupEventListeners/);
-							if (deepMatch) {
-								return `${deepMatch[1]}:callback`;
-							}
-							// Also check for other setup methods
-							const setupMatch = stackLine.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+)\.(setup|init|constructor|on)/);
-							if (setupMatch && setupMatch[1] !== 'EventEmitter') {
-								return `${setupMatch[1]}:callback`;
-							}
-						}
-					}
-					return `${className}:callback`;
-				}
-				return 'callback';
-			}
-			
-			// Look for the actual method that was called (before the callback infrastructure)
-			const match = line.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+)\.([A-Za-z_$][A-Za-z0-9_$]+)\s*\(/);
-			if (match) {
-				const className = match[1];
-				const methodName = match[2];
-				// Skip emit methods as they are infrastructure, not the actual callback
-				if (methodName !== 'emit' && methodName !== 'emitWrapper') {
-					const cleanedContext = cleanMinifiedName(`${className}.${methodName}`);
-					if (isMeaningfulContext(cleanedContext)) {
-						return `${cleanedContext}:callback`;
-					}
-				}
-			}
-		}
-			
-			// Handle callback/eval contexts (legacy)
-			if (line.includes('at eval (')) {
-				// Look backwards for meaningful context
-				for (let j = relevantLines.indexOf(line) - 1; j >= 0; j--) {
-					const contextLine = relevantLines[j]?.trim();
-					if (!contextLine) continue;
-					const contextMatch = contextLine.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+(?:\.[A-Za-z_$][A-Za-z0-9_$]+)?)\s*\(/);
-					if (contextMatch && contextMatch[1] !== 'eval') {
-						const cleanedContext = cleanMinifiedName(contextMatch[1]);
-						if (isMeaningfulContext(cleanedContext)) {
-							return `${cleanedContext}:callback`;
-						}
-					}
-				}
-				return 'callback';
-			}
-			
-			// Class.method patterns
-			let match = line.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]+)\.([A-Za-z_$][A-Za-z0-9_$]+)\s*\(/);
-			if (match) {
-				const className = match[1];
-				const methodName = match[2];
-				
-				// Try to find a registered class name that might match
-				let bestClassName = className;
-				
-				// Clean up the result
-				let cleanResult = '';
-				if (className === 'Object' || className === 'Module') {
-					// For Object/Module, try to use a registered class name if available
-					if (bestClassName !== className) {
-						cleanResult = `${bestClassName}.${methodName}`;
-					} else {
-						cleanResult = methodName;
-					}
-				} else {
-					cleanResult = cleanMinifiedName(`${bestClassName}.${methodName}`);
-				}
-				
-				if (isMeaningfulContext(cleanResult)) {
-					return cleanResult;
-				}
-			}
-			
-			// Constructor patterns
-			match = line.match(/at\s+new\s+([A-Za-z_$][A-Za-z0-9_$]+)\s*\(/);
-			if (match) {
-				const constructorName = match[1];
-				if (constructorName.length > 2) {
-					return `${constructorName}.constructor`;
-				}
-			}
-			
-			// Standalone function names
-			match = line.match(/at\s+([A-Za-z_$][A-Za-z0-9_$]{3,})\s*\(/);
-			if (match) {
-				const funcName = match[1];
-				if (isMeaningfulContext(funcName)) {
-					return funcName;
-				}
-			}
-		}
+
+		// Regex to capture "at ClassName.methodName (source)" or "at methodName (source)"
+		// Assumes names are NOT minified.
+		const stackLineRegex = /\s*at\s+(?:new\s+)?([A-Za-z0-9_$.]+(?:\s+\[as\s+[A-Za-z0-9_$.]+])?)/;
 		
+		for (const line of relevantLines) {
+			const trimmedLine = line.trim();
+			if (!trimmedLine) continue;
+
+			const match = trimmedLine.match(stackLineRegex);
+			if (match && match[1]) {
+				let potentialContext = match[1];
+
+				// Handle " [as alias]" part if present
+				const asAliasMatch = potentialContext.match(/(.*)\s+\[as\s+.*]/);
+				if (asAliasMatch && asAliasMatch[1]) {
+					potentialContext = asAliasMatch[1];
+				}
+
+				const { className, methodName } = extractClassAndMethod(potentialContext);
+
+				if (isMeaningfulContext(methodName) || isMeaningfulContext(className)) {
+					const isEvalCallback = trimmedLine.toLowerCase().includes('at eval');
+					const isGenericCallbackHint = methodName?.toLowerCase().includes('callback') ||
+												className?.toLowerCase().includes('callback') ||
+												methodName?.toLowerCase().startsWith('_on') || 
+												trimmedLine.toLowerCase().includes('eventemitter') ||
+												trimmedLine.toLowerCase().includes('.emit');
+					
+					// If the context is just 'eval', we probably don't have a useful class/method name from it.
+					// Trust the registered class name more in this case.
+					if (methodName === 'eval' && !className) {
+						return { isCallback: true }; // Signal callback, but no specific method/class from this frame
+					}
+
+					return { className, methodName, isCallback: isEvalCallback || isGenericCallbackHint };
+				}
+			}
+		}
 	} catch (e) {
-		// Stack trace parsing failed, continue without caller info
+		console.error("Error in getCallerInfo:", e);
 	}
-	
-	return '';
+	return { isCallback: false }; // Default if no info found
 }
 
 // Import config functions
@@ -226,212 +111,153 @@ import { getRegisteredClassName } from './class-registry';
 // Customizable format function that uses templates and detects callback contexts
 export function formatPrefixCustom(component?: string, contextInstance?: any, message?: string): string {
 	const namespace = getNamespace();
-	let className = '';
-	let methodName = '';
+	let derivedClassName: string | null = null;
+	let derivedMethodName: string | null = null;
 	let isCallbackContext = false;
-	
-	// Special case: component and methodOverride (both strings) -> straightforward prefix
-	if (component && typeof contextInstance === 'string' && message === undefined) {
-		const namespace = getNamespace();
-		const className = component;
-		const methodName = contextInstance;
-		const template = getFormatTemplate();
-		let result = template.replace('{namespace}', namespace).replace('{class}', className);
-		if (template.includes('{method}')) {
-			result = result.replace('{method}', methodName);
-		}
-		// Remove {message} placeholder
-		result = result.replace('{message}', '').trim();
-		// Clean up whitespace
-		return result.replace(/\s+/g, ' ').trim();
-	}
-	// Get caller information
+
+	const callerInfo = getCallerInfo();
+	isCallbackContext = callerInfo.isCallback;
+
 	if (contextInstance) {
-		const registeredName = getRegisteredClassName(contextInstance);
-		// Get stack info and detect EventEmitter/eval callbacks
-		const stackInfo = getCallerInfo();
-		const rawStack = new Error().stack || '';
-		// Detect eval or any .emit(...) calls (including 'wu.emit') as callback context
-		const isEmitCallback = /\.eval\s*\(|\.emit\s*\(/.test(rawStack);
-		// Check if this appears to be a callback context
-		isCallbackContext = isEmitCallback || stackInfo.includes(':callback') || stackInfo === 'callback' || stackInfo.includes('anonymous');
-		
-		// If registered instance and callback context, return early with callback template
-		if (registeredName && isCallbackContext) {
-			const template = getCallbackFormatTemplate();
-			return template
-				.replace('{namespace}', getNamespace())
-				.replace('{class}', registeredName)
-				.replace('{message}', message || '')
-				.trim();
-		}
-		if (registeredName) {
-			className = registeredName;
-			if (!isCallbackContext) {
-				if (stackInfo && !stackInfo.includes('.') && stackInfo !== 'callback' && stackInfo !== 'eval') {
-					// Simple method name from stack
-					methodName = stackInfo;
-				} else if (stackInfo.includes('.')) {
-					methodName = stackInfo.split('.').pop() || '';
-				} else {
-					methodName = stackInfo || '';
-				}
+		derivedClassName = getRegisteredClassName(contextInstance);
+		if (callerInfo.methodName && !isCallbackContext) { // Prefer stack method if not a callback and available
+			derivedMethodName = callerInfo.methodName ?? null;
+			// If stack also gave a class name, and it matches registered, it's fine.
+			// If it's different, the registered one is usually more reliable for the primary class.
+			if (callerInfo.className && callerInfo.className !== derivedClassName) {
+				// This could happen if a method from a registered class calls a method on another (unregistered) class instance.
+				// For now, we prioritize the registered class name.
 			}
-		} else {
-			// No registered name, use stack info
-			if (stackInfo.includes('.')) {
-				const parts = stackInfo.split('.');
-				className = parts[0] || '';
-				methodName = parts[1] || '';
-				// Check for callback in the context
-				if (stackInfo.includes(':callback')) {
-					isCallbackContext = true;
-					methodName = '';
-				}
-			} else {
-				className = '';
-				methodName = stackInfo || '';
-			}
+		} else if (callerInfo.methodName && isCallbackContext && !derivedClassName) {
+			// If it's a callback and we don't have a registered class, use what stack gives
+			derivedClassName = callerInfo.className ?? null;
+			derivedMethodName = callerInfo.methodName ?? null; // Also assign method name if available
 		}
-	} else {
-		// No context instance, use component or caller info
-		const callerInfo = component || getCallerInfo();
-		isCallbackContext = callerInfo.includes(':callback') || callerInfo === 'callback';
-		
-		if (callerInfo.includes('.')) {
-			const parts = callerInfo.split('.');
-			className = parts[0] || '';
-			methodName = parts[1] || '';
-		} else if (callerInfo.includes(':callback')) {
-			// Handle "ClassName:callback" format
-			className = callerInfo.split(':')[0] || '';
-			methodName = '';
-			isCallbackContext = true;
-		} else {
-			className = '';
-			methodName = callerInfo || '';
-		}
+	} else if (component) { // No instance, but a component string is provided
+		derivedClassName = component;
+		derivedMethodName = callerInfo.methodName ?? null;
+		// If stack also gave a class name, and it's different from component, it might be a standalone function
+		// or a method of a different class. For now, component override takes precedence for class.
+		if (callerInfo.className && callerInfo.className !== derivedClassName && !callerInfo.methodName) {
+			// This case is tricky: component="Comp", stack="OtherClass.someMethod"
+			// Current logic: Class="Comp", Method="someMethod"
+		} else if (callerInfo.className && !callerInfo.methodName) {
+             // If stack gives "StandaloneClass" and no method, and we have a component,
+             // it's ambiguous. Let's stick with component as class, method from stack.
+        }
+
+	} else { // No instance, no component string
+		derivedClassName = callerInfo.className ?? null;
+		derivedMethodName = callerInfo.methodName ?? null;
 	}
 	
-	// Choose the appropriate template
+	// If derivedClassName ended up empty, but callerInfo had one (e.g. standalone function in a module treated as class by stack)
+	if (!derivedClassName && callerInfo.className && !callerInfo.methodName) {
+		// This could be a function that isn't part of a class, stack might parse module as class.
+		// Let's treat it as a "method" name without a class for the logger.
+		derivedMethodName = callerInfo.className ?? null;
+	} else if (!derivedClassName && callerInfo.className && callerInfo.methodName) {
+		// If no registered class, take both from stack if available
+		derivedClassName = callerInfo.className ?? null;
+		derivedMethodName = callerInfo.methodName ?? null;
+	}
+
+
+	// Fallback for method name if it's empty but class name is present and looks like Class.method
+	if (derivedClassName && !derivedMethodName && derivedClassName.includes('.')) {
+		const parts = derivedClassName.split('.');
+		derivedMethodName = parts.pop() ?? null;
+		derivedClassName = parts.join('.');
+	}
+	// Fallback for class name if it's empty but method name is present and looks like Class.method
+	if (!derivedClassName && derivedMethodName && derivedMethodName.includes('.')) {
+		const parts = derivedMethodName.split('.');
+		derivedClassName = parts.shift() ?? null;
+		derivedMethodName = parts.join('.');
+	}
+	
+	// Final check for callback context if method name implies it
+	if (derivedMethodName && (derivedMethodName.toLowerCase().includes('callback') || derivedMethodName.toLowerCase().startsWith('_on'))) {
+		isCallbackContext = true;
+	}
+
 	const template = isCallbackContext ? getCallbackFormatTemplate() : getFormatTemplate();
-		// Apply the template - replace placeholders
+	
 	let result = template
 		.replace('{namespace}', namespace)
-		.replace('{class}', className)
+		.replace('{class}', derivedClassName || '') // Ensure empty string if null
 		.replace('{message}', message || '');
-	
-	// Only replace {method} if it exists in the template (for callback templates that don't use it)
+
 	if (template.includes('{method}')) {
-		result = result.replace('{method}', methodName);
+		result = result.replace('{method}', derivedMethodName || ''); // Ensure empty string if null
 	}
 	
-	return result;
+	return result.replace(/\s\s+/g, ' ').trim(); // Normalize spaces
 }
 
 // Function to format just the prefix part (without message) for separate styling
 export function formatPrefixOnly(component?: string, contextInstance?: any): string {
+	// This function can leverage formatPrefixCustom by passing a placeholder message
+	// and then removing it, to avoid duplicating logic.
+	// However, for directness and potential minor optimization, we'll keep it separate but aligned.
+
 	const namespace = getNamespace();
-	let className = '';
-	let methodName = '';
+	let derivedClassName: string | null = null;
+	let derivedMethodName: string | null = null;
 	let isCallbackContext = false;
-	// Get caller information
+
+	const callerInfo = getCallerInfo();
+	isCallbackContext = callerInfo.isCallback;
+
 	if (contextInstance) {
-		const registeredName = getRegisteredClassName(contextInstance);
-		const stackInfo = getCallerInfo();		// Check if this appears to be a callback context
-		isCallbackContext = stackInfo.includes(':callback') || stackInfo === 'callback' || 
-						   stackInfo.includes('eval') || stackInfo.includes('anonymous') ||
-						   stackInfo.includes('EventEmitter.<anonymous>');
-		
-		if (registeredName) {
-			className = registeredName;
-			if (isCallbackContext) {
-				// Use callback template - the registered name is the class name we want
-				methodName = ''; // Not used in callback template
-			} else if (stackInfo && !stackInfo.includes('.') && stackInfo !== 'callback' && stackInfo !== 'eval') {
-				// Simple method name from stack
-				methodName = stackInfo;
-			} else if (stackInfo.includes('.')) {
-				// Handle "ClassName.methodName" format - extract method only since we have registered name
-				if (stackInfo.includes(':callback')) {
-					isCallbackContext = true;
-					methodName = '';
-				} else {
-					const parts = stackInfo.split('.');
-					methodName = parts[1] || '';
-				}
-			}
-		} else {
-			// No registered name, use caller info
-			const callerInfo = getCallerInfo();
-			if (isCallbackContext) {
-				// Use callback template
-				methodName = ''; // Not used in callback template
-				// If callerInfo is like "ClassName:callback", extract the class name
-				if (callerInfo.includes(':callback')) {
-					className = callerInfo.split(':')[0] || '';
-				}
-			} else if (component) {
-				className = component;
-				methodName = callerInfo || '';
-			} else if (callerInfo.includes('.')) {
-				const parts = callerInfo.split('.');
-				className = parts[0] || '';
-				methodName = parts[1] || '';
-			} else if (callerInfo.includes(':callback')) {
-				// Handle "ClassName:callback" format
-				className = callerInfo.split(':')[0] || '';
-				methodName = '';
-				isCallbackContext = true;
-			} else {
-				className = '';
-				methodName = callerInfo || '';
-			}
+		derivedClassName = getRegisteredClassName(contextInstance);
+		if (callerInfo.methodName && !isCallbackContext) {
+			derivedMethodName = callerInfo.methodName ?? null;
+			// Class name logic similar to formatPrefixCustom
+		} else if (callerInfo.methodName && isCallbackContext && !derivedClassName) {
+			derivedClassName = callerInfo.className ?? null;
 		}
 	} else if (component) {
-		className = component;
-		const stackInfo = getCallerInfo();
-		if (stackInfo.includes(':callback') || stackInfo.includes('anonymous') || stackInfo.includes('EventEmitter.<anonymous>')) {
-			isCallbackContext = true;
-			methodName = '';
-		} else {
-			methodName = stackInfo || '';
-		}
+		derivedClassName = component;
+		derivedMethodName = callerInfo.methodName ?? null;
+		// Class name logic similar to formatPrefixCustom
 	} else {
-		// No instance and no component override, get from stack
-		const callerInfo = getCallerInfo();
-		if (callerInfo.includes('.')) {
-			const parts = callerInfo.split('.');
-			className = parts[0] || '';
-			methodName = parts[1] || '';
-		} else if (callerInfo.includes(':callback')) {
-			// Handle "ClassName:callback" format
-			className = callerInfo.split(':')[0] || '';
-			methodName = '';
-			isCallbackContext = true;
-		} else {
-			className = '';
-			methodName = callerInfo || '';
-		}
+		derivedClassName = callerInfo.className ?? null;
+		derivedMethodName = callerInfo.methodName ?? null;
 	}
 	
-	// Choose the appropriate template
+	if (!derivedClassName && callerInfo.className && !callerInfo.methodName) {
+		derivedMethodName = callerInfo.className ?? null;
+	} else if (!derivedClassName && callerInfo.className && callerInfo.methodName) {
+		derivedClassName = callerInfo.className ?? null;
+		derivedMethodName = callerInfo.methodName ?? null;
+	}
+
+	if (derivedClassName && !derivedMethodName && derivedClassName.includes('.')) {
+		const parts = derivedClassName.split('.');
+		derivedMethodName = parts.pop() ?? null;
+		derivedClassName = parts.join('.');
+	}
+	if (!derivedClassName && derivedMethodName && derivedMethodName.includes('.')) {
+		const parts = derivedMethodName.split('.');
+		derivedClassName = parts.shift() ?? null;
+		derivedMethodName = parts.join('.');
+	}
+	
+	if (derivedMethodName && (derivedMethodName.toLowerCase().includes('callback') || derivedMethodName.toLowerCase().startsWith('_on'))) {
+		isCallbackContext = true;
+	}
+
 	const template = isCallbackContext ? getCallbackFormatTemplate() : getFormatTemplate();
 	
-	// Apply the template - replace placeholders (excluding {message})
 	let result = template
 		.replace('{namespace}', namespace)
-		.replace('{class}', className);
-	
-	// Only replace {method} if it exists in the template (for callback templates that don't use it)
+		.replace('{class}', derivedClassName || '');
+
 	if (template.includes('{method}')) {
-		result = result.replace('{method}', methodName);
+		result = result.replace('{method}', derivedMethodName || '');
 	}
-	// Remove the {message} placeholder entirely
-	result = result.replace('{message}', '').trim();
 	
-	// Clean up any double spaces, but preserve intentional punctuation like colons
-	result = result.replace(/\s+/g, ' ').trim();
-	
-	return result;
+	result = result.replace('{message}', '').trim(); // Remove message placeholder
+	return result.replace(/\s\s+/g, ' ').trim(); // Normalize spaces
 }

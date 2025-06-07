@@ -53,7 +53,21 @@ function safeStringify(obj: any, maxDepth = 3): string {
 				// JSON.stringify failed, fall back to manual approach
 			}
 			
-			// Check if this object has a registered class name first
+			// Prioritize constructor.name if available and not a generic Object/Function
+			if (typeof value.constructor === 'function' && value.constructor.name && value.constructor.name !== 'Object' && value.constructor.name !== 'Function') {
+				const className = value.constructor.name;
+				// Show a few key properties if they exist and are simple
+				const keyProps: string[] = [];
+				for (const key of ['name', 'id', 'type', 'status', 'length']) {
+					if (key in value && typeof value[key] !== 'object' && typeof value[key] !== 'function') {
+						keyProps.push(`${key}: ${String(value[key])}`);
+						if (keyProps.length >= 3) break;
+					}
+				}
+				return `${className}${keyProps.length > 0 ? ` {${keyProps.join(', ')}}` : ''}`;
+			}
+
+			// Fallback to registered name if constructor.name wasn't suitable
 			const registeredName = getRegisteredClassName(value);
 			if (registeredName) {
 				// Show a few key properties if they exist and are simple
@@ -67,21 +81,7 @@ function safeStringify(obj: any, maxDepth = 3): string {
 				return `${registeredName}${keyProps.length > 0 ? ` {${keyProps.join(', ')}}` : ''}`;
 			}
 			
-			// For functions, return a simple representation using constructor name
-			if (typeof value.constructor === 'function' && value.constructor.name) {
-				const className = value.constructor.name;
-				// Show a few key properties if they exist and are simple
-				const keyProps: string[] = [];
-				for (const key of ['name', 'id', 'type', 'status', 'length']) {
-					if (key in value && typeof value[key] !== 'object' && typeof value[key] !== 'function') {
-						keyProps.push(`${key}: ${String(value[key])}`);
-						if (keyProps.length >= 3) break;
-					}
-				}
-				return `${className}${keyProps.length > 0 ? ` {${keyProps.join(', ')}}` : ''}`;
-			}
-			
-			// For plain objects, show all properties in a JSON-like format
+			// For plain objects without a useful constructor.name or registered name, show properties
 			const keys = Object.keys(value);
 			if (keys.length === 0) {
 				return '{}';

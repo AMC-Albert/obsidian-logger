@@ -30,7 +30,7 @@ window.DEBUG.setLevel('plugin-id', 'warn');
 window.DEBUG.disable('plugin-id');
 ```
 
-**Log Levels** (from most to least verbose):
+**Log levels** (from most to least verbose):
 - `debug` - Show everything (most verbose)
 - `info` - Show info, warnings, and errors  
 - `warn` - Show warnings and errors only
@@ -61,6 +61,56 @@ registerLoggerClass(this, 'MyPluginClass');
 debug(this, 'Message'); // → [plugin-id] MyPluginClass.methodName: Message
 ```
 
+### Build configuration for readable stack traces
+
+For the logger to accurately display class and method names from stack traces, it's crucial that your build process does not minify or obfuscate these identifiers, especially in production builds where other minification is often desired.
+
+**Using esbuild (recommended configuration for production):**
+
+If you are using `esbuild` (common for Obsidian plugins), ensure your production build options include settings to preserve names while still minifying whitespace and syntax. Here's an example of how you might set these options in your `esbuild.config.mjs` (or similar build script):
+
+```javascript
+// esbuild.config.mjs
+
+// ... (other parts of your build script) ...
+
+const prodEsbuildOptions = {
+  // ... other esbuild options for your production build ...
+  minifyWhitespace: true,   // Minifies whitespace
+  minifySyntax: true,       // Minifies syntax (e.g., removing unnecessary characters)
+  minifyIdentifiers: false, // Crucial: Prevents minification of class/function names
+  keepNames: true,          // Ensures names are kept, works in conjunction with minifyIdentifiers: false
+  sourcemap: false,         // Typically false for production builds
+  // ... other production-specific options ...
+};
+
+// ... (logic to use prodEsbuildOptions for production builds) ...
+```
+
+This setup ensures that class and function names remain intact for the logger, providing informative logs, while still applying other minification techniques to reduce bundle size.
+
+**For development builds:**
+
+In development, you might use a simpler configuration, for example:
+
+```javascript
+// esbuild.config.mjs
+
+// ... (other parts of your build script) ...
+
+const devEsbuildOptions = {
+  // ... other esbuild options for your development build ...
+  minify: false,        // No minification in dev
+  keepNames: true,      // Good for readable names and consistency with prod
+  sourcemap: "inline",  // Or other sourcemap option for debugging
+  // ... other development-specific options ...
+};
+
+// ... (logic to use devEsbuildOptions for development builds) ...
+```
+
+Preserving identifiers (`minifyIdentifiers: false` and `keepNames: true` in production, or `minify: false` and `keepNames: true` in development) is key to getting the most informative logs from this utility.
+
 ### Static (utility) function logging
 
 For standalone functions or modules (no class instance), provide component and method names:
@@ -74,7 +124,7 @@ debug('DateParser', 'parseDate', 'Parsing text:', text);
 
 This ensures the correct `Class.method` prefix even without `this` context.
 
-### Registering Multiple Classes
+### Registering multiple classes
 
 ```typescript
 // Initialize logger system first
@@ -159,7 +209,7 @@ setMessageColor('#ffffff');  // White messages (default)
 - **Prefix**: Colored according to log level (debug/info/warn/error)
 - **Message**: Colored according to `messageColor` setting (default: white)
 
-## Object Logging
+## Object logging
 
 The debug system safely handles complex objects without circular reference errors using improved `safeStringify`:
 
