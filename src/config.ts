@@ -19,7 +19,7 @@ const config: DebugConfig = {
 };
 
 // Function to initialize the debug system with a plugin instance
-export function initDebug(plugin: { manifest: { id: string } }): void {
+export function initLogger(plugin: { manifest: { id: string } }): void {
 	config.globalNamespace = plugin.manifest.id;
 }
 

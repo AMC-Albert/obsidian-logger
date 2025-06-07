@@ -51,10 +51,10 @@ git submodule add https://github.com/AMC-Albert/obsidian-logger.git
 ### Usage
 
 ```typescript
-import { initDebug, debug, registerLoggerClass } from './obsidian-logger';
+import { initLogger, debug, registerLoggerClass } from './obsidian-logger';
 
 // In your main plugin class constructor
-initDebug(this);
+initLogger(this);
 registerLoggerClass(this, 'MyPluginClass');
 
 // Use throughout your code
@@ -64,8 +64,8 @@ debug(this, 'Message'); // → [plugin-id] MyPluginClass.methodName: Message
 ### Registering Multiple Classes
 
 ```typescript
-// Initialize debug system first
-initDebug(this);
+// Initialize logger system first
+initLogger(this);
 
 // Register your main plugin class
 registerLoggerClass(this, 'MyPlugin');
@@ -74,7 +74,7 @@ registerLoggerClass(this, 'MyPlugin');
 this.settingsManager = new SettingsManager(this.settings);
 this.uiController = new UIController(this);
 
-// Register each component for better debug context
+// Register each component for better logging context
 registerLoggerClass(this.settingsManager, 'SettingsManager');
 registerLoggerClass(this.uiController, 'UIController');
 

@@ -3,7 +3,7 @@ export type { LogLevel, DebugColors, DebugConfig, CallbackFormatTemplate } from 
 
 // Export configuration functions
 export {
-	initDebug,
+	initLogger,
 	setNamespaceOverride,
 	setColors,
 	setDefaultLogLevel,
