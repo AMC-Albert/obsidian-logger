@@ -30,28 +30,31 @@ function isMeaningfulContext(name?: string): boolean {
 }
 
 // Simplified helper function to extract caller information from stack trace
+import { getLoggerPluginIdForStackParsing } from './config'; // Added import
+
 export function getCallerInfo(): { className?: string, methodName?: string, isCallback: boolean } {
 	try {
 		const stack = new Error().stack;
 		if (!stack) return { isCallback: false };
 
 		const lines = stack.split('\n');
+        const pluginId = getLoggerPluginIdForStackParsing(); // Get dynamic plugin ID
 
-		// Filter out internal logger functions and direct calls to debug/log/warn/error
+		// Filter out internal logger functions and direct calls to loggerDebug/loggerInfo/loggerWarn/loggerError
 		const relevantLines = lines.slice(1).filter(line => {
 			const trimmed = line.trim();
 			// Skip lines related to the logger's own functions
 			if (trimmed.includes('getCallerInfo') ||
 				trimmed.includes('formatPrefix') || // Catches formatPrefixOnly and formatPrefixCustom
 				trimmed.includes('simple-debug') || // Assuming 'simple-debug' is an internal marker
-				trimmed.match(/at\s+(log|debug|info|warn|error|logger)\s*\(/i)) { // Logger function calls
+				trimmed.match(/at\s+(loggerDebug|loggerInfo|loggerWarn|loggerError|loggerLog)\s*\(/i) // Logger function calls
+			) {
 				return false;
 			}
 			// Skip lines that are not part of the plugin's own code (heuristic)
 			// This helps avoid pulling context from Obsidian's internal calls or other plugins if possible
-			// Modify 'plugin:sidecars' if your plugin ID in stack traces is different
 			// Keep eval lines from the plugin as they might be part of callbacks
-			if (!trimmed.includes('(plugin:sidecars:') && !(trimmed.includes('at eval (') && trimmed.includes('(plugin:sidecars:'))) {
+			if (pluginId && !trimmed.includes(`(plugin:${pluginId}:`) && !(trimmed.includes('at eval (') && trimmed.includes(`(plugin:${pluginId}:`))) {
 				// If it's an eval line NOT from our plugin, skip it.
 				if (trimmed.includes('at eval (')) {
 					return false;

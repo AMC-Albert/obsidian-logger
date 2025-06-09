@@ -46,4 +46,5 @@ export interface DebugConfig {
 	formatTemplate: FormatTemplate;
 	callbackFormatTemplate: CallbackFormatTemplate;
 	messageColor: string;
+    pluginIdForStackParsing: string | null; // Added for dynamic plugin ID
 }

@@ -15,14 +15,16 @@ export {
 	getCurrentNamespace,
 	getFormatTemplate,
 	getCallbackFormatTemplate,
-	getMessageColor
+	getMessageColor,
+    setLoggerPluginId, // Added export
+    getLoggerPluginIdForStackParsing // Added export
 } from './src/config';
 
 // Export class registration
 export { registerLoggerClass } from './src/class-registry';
 
 // Export logger functions
-export { debug, info, warn, error } from './src/loggers';
+export { loggerDebug, loggerInfo, loggerWarn, loggerError } from './src/loggers';
 
 // Export the debug system initializer
 export { initializeDebugSystem } from './src/controller';

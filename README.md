@@ -51,10 +51,10 @@ window.DEBUG.clearLogs('plugin-id'); // Clear logs for specific plugin
 ```
 
 **Log levels** (from most to least verbose):
-- `debug` - Show everything (most verbose)
-- `info` - Show info, warnings, and errors  
-- `warn` - Show warnings and errors only
-- `error` - Show errors only (always shown regardless of settings)
+- `loggerDebug` - Show everything (most verbose)
+- `loggerInfo` - Show info, warnings, and errors  
+- `loggerWarn` - Show warnings and errors only
+- `loggerError` - Show errors only (always shown regardless of settings)
 
 **Note:** Changes made in the console are temporary and will reset when you reload Obsidian. The plugin developer controls the default debug settings.
 
@@ -164,11 +164,11 @@ export default class MyObsidianPlugin extends Plugin {
     // This ensures `window.DEBUG.copyLogs()` etc. are reliably available.
     this.app.workspace.onLayoutReady(() => {
       initializeDebugSystem();
-      debug(this, 'Logger and Debug system initialized (onLayoutReady).');
+      loggerDebug(this, 'Logger and Debug system initialized (onLayoutReady).');
       // Example: [your-plugin-id] MyObsidianPlugin.onload: Logger and Debug system initialized (onLayoutReady).
     });
 
-    debug(this, 'Plugin onload setup complete (pre-layout).');
+    loggerDebug(this, 'Plugin onload setup complete (pre-layout).');
 
     // ... rest of your onload logic ...
   }
@@ -262,9 +262,9 @@ registerLoggerClass(this.settingsManager, 'SettingsManager');
 registerLoggerClass(this.uiController, 'UIController');
 
 // Now debug calls from each class will show their registered names
-debug(this, 'Plugin initialized');                     // → [plugin-id] MyPlugin.onload: Plugin initialized
-debug(this.dataManager, 'Loading data from vault');    // → [plugin-id] DataManager.load: Loading data from vault
-debug(this.uiController, 'Setting up UI components');  // → [plugin-id] UIController.setup: Setting up UI components
+loggerDebug(this, 'Plugin initialized');                     // → [plugin-id] MyPlugin.onload: Plugin initialized
+loggerDebug(this.dataManager, 'Loading data from vault');    // → [plugin-id] DataManager.load: Loading data from vault
+loggerDebug(this.uiController, 'Setting up UI components');  // → [plugin-id] UIController.setup: Setting up UI components
 ```
 
 ## Configuration
@@ -335,7 +335,7 @@ The debug system safely handles complex objects without circular reference error
 
 ```typescript
 // These all work safely:
-debug(this, 'App object:', this.app);           // → safe, readable output
-debug(this, 'File info', file);                 // → TFile{name: "2025-06-07.md", path: "/..."}
-debug(this, 'Complex data:', someComplexObj);   // → Object summary without circular refs
+loggerDebug(this, 'App object:', this.app);           // → safe, readable output
+loggerDebug(this, 'File info', file);                 // → TFile{name: "2025-06-07.md", path: "/..."}
+loggerDebug(this, 'Complex data:', someComplexObj);   // → Object summary without circular refs
 ```

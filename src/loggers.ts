@@ -153,7 +153,7 @@ function parseLogArgs(args: any[]): {
 }
 
 // Consolidated logging function
-function log(level: LogLevel, ...args: any[]): void {
+function loggerLog(level: LogLevel, ...args: any[]): void {
 	if (!shouldLog(level)) return;
 	
 	const { component, contextInstance, logArgs } = parseLogArgs(args);
@@ -222,26 +222,26 @@ function log(level: LogLevel, ...args: any[]): void {
 }
 
 // Export debug helpers with function overloads
-export function debug(componentOrInstance?: string | any, ...args: any[]): void;
-export function debug(...args: any[]): void;
-export function debug(...args: any[]) {
-	log('debug', ...args);
+export function loggerDebug(componentOrInstance?: string | any, ...args: any[]): void;
+export function loggerDebug(...args: any[]): void;
+export function loggerDebug(...args: any[]) {
+	loggerLog('debug', ...args);
 }
 
-export function info(componentOrInstance?: string | any, ...args: any[]): void;
-export function info(...args: any[]): void;
-export function info(...args: any[]) {
-	log('info', ...args);
+export function loggerInfo(componentOrInstance?: string | any, ...args: any[]): void;
+export function loggerInfo(...args: any[]): void;
+export function loggerInfo(...args: any[]) {
+	loggerLog('info', ...args);
 }
 
-export function warn(componentOrInstance?: string | any, ...args: any[]): void;
-export function warn(...args: any[]): void;
-export function warn(...args: any[]) {
-	log('warn', ...args);
+export function loggerWarn(componentOrInstance?: string | any, ...args: any[]): void;
+export function loggerWarn(...args: any[]): void;
+export function loggerWarn(...args: any[]) {
+	loggerLog('warn', ...args);
 }
 
-export function error(componentOrInstance?: string | any, ...args: any[]): void;
-export function error(...args: any[]): void;
-export function error(...args: any[]) {
-	log('error', ...args);
+export function loggerError(componentOrInstance?: string | any, ...args: any[]): void;
+export function loggerError(...args: any[]): void;
+export function loggerError(...args: any[]) {
+	loggerLog('error', ...args);
 }

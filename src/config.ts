@@ -19,7 +19,8 @@ const config: DebugConfig = {
 	debugEnabled: false,
 	formatTemplate: '[{namespace}] {class}.{method}: {message}',
 	callbackFormatTemplate: '[{namespace}] {class} (callback): {message}',
-	messageColor: '#ffffff' // White message text by default
+	messageColor: '#ffffff', // White message text by default
+    pluginIdForStackParsing: null // Added for dynamic plugin ID
 };
 
 // Function to initialize the debug system with a plugin instance
@@ -31,6 +32,16 @@ export function initLogger(plugin: { manifest: { id: string } }): void {
 export function getNamespace(): string {
 	if (config.namespaceOverride) return config.namespaceOverride;
 	return config.globalNamespace || 'obsidian-plugin';
+}
+
+// New function to set the plugin ID for stack parsing
+export function setLoggerPluginId(pluginId: string): void {
+	config.pluginIdForStackParsing = pluginId;
+}
+
+// New getter for the plugin ID for stack parsing
+export function getLoggerPluginIdForStackParsing(): string | null {
+    return config.pluginIdForStackParsing;
 }
 
 // Configuration methods
