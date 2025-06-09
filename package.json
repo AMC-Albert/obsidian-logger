@@ -1,6 +1,6 @@
 {
   "name": "obsidian-logger",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "Debug logging for Obsidian plugins with customizable format templates and namespace support",
   "main": "index.ts",
   "types": "index.ts",
