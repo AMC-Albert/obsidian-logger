@@ -219,10 +219,18 @@ export function initializeDebugSystem() {
 								line = line.replace(/^\s*[\[\(]?\d{2,4}[-/]\d{1,2}[-/]\d{1,2}[T\s]\d{1,2}:\d{1,2}(:\d{1,2})?(\.\d+)?([Zz]|[+-]\d{2}:?\d{2})?[\])]?\s*/, '');
 							}
 							if (stripLogLevel) {
-								line = line.replace(new RegExp(`\\\\[${log.level.toUpperCase()}\\\\]\\s*`, 'i'), '');
+								// Remove leading [LEVEL]
+								const lvlPrefix = `[${log.level.toUpperCase()}]`;
+								if (line.startsWith(lvlPrefix)) {
+									line = line.slice(lvlPrefix.length).trimStart();
+								}
 							}
 							if (stripNamespace) {
-								line = line.replace(new RegExp(`\\\\[${log.namespace}\\\\]\\s*`, 'i'), '');
+								// Remove leading [namespace]
+								const nsPrefix = `[${log.namespace}]`;
+								if (line.startsWith(nsPrefix)) {
+									line = line.slice(nsPrefix.length).trimStart();
+								}
 							}
 							if (stripClass && log.className) {
 								line = line.replace(new RegExp(`${log.className.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&')}\\.?\\s*`, 'i'), '');
