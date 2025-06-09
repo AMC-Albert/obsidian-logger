@@ -1,6 +1,17 @@
 export const LOG_LEVELS = { error: 0, warn: 1, info: 2, debug: 3 } as const;
 export type LogLevel = keyof typeof LOG_LEVELS;
 
+export interface LogEntry {
+	timestamp: Date;
+	level: LogLevel;
+	namespace: string;
+	className?: string;
+	methodName?: string;
+	message: string;
+	args: any[];
+	formattedMessage: string;
+}
+
 export interface DebugColors {
 	debug: string;
 	info: string;

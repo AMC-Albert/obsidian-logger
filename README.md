@@ -28,6 +28,26 @@ window.DEBUG.setLevel('plugin-id', 'warn');
 
 // Disable debugging for a plugin
 window.DEBUG.disable('plugin-id');
+
+// Copy recent logs to clipboard (developer tools)
+window.DEBUG.copyLogs(); // Copy last 50 logs from current plugin
+
+// Copy with custom options
+window.DEBUG.copyLogs({
+	namespace: 'plugin-id',     // Specific plugin (default: current)
+	count: 100,                 // Number of recent logs (default: 50)
+	stripNamespace: true,       // Remove [plugin-id] prefix
+	stripClass: true,           // Remove class names
+	stripMethod: true,          // Remove method names
+	stripTimestamp: false,      // Include timestamps (default: true - off)
+	stripLogLevel: false,       // Include log levels like [INFO] (default: true - off)
+	simplifyPaths: false,       // Disable path simplification (default: true - on)
+	format: 'message-only'      // 'full', 'prefix-only', 'message-only', 'custom'
+});
+
+// Clear stored logs
+window.DEBUG.clearLogs();           // Clear all logs
+window.DEBUG.clearLogs('plugin-id'); // Clear logs for specific plugin
 ```
 
 **Log levels** (from most to least verbose):
@@ -37,6 +57,77 @@ window.DEBUG.disable('plugin-id');
 - `error` - Show errors only (always shown regardless of settings)
 
 **Note:** Changes made in the console are temporary and will reset when you reload Obsidian. The plugin developer controls the default debug settings.
+
+## Developer Tools: Log Export
+
+The logger automatically stores recent log entries (up to 1000) that you can export for analysis or sharing. Use the developer console to copy formatted logs to your clipboard:
+
+### Basic Usage
+
+```typescript
+// Copy last 50 logs from current plugin with full formatting
+window.DEBUG.copyLogs();
+
+// Copy specific number of logs
+window.DEBUG.copyLogs({ count: 100 });
+
+// Copy logs from a specific plugin
+window.DEBUG.copyLogs({ namespace: 'other-plugin-id' });
+```
+
+### Formatting Options
+
+Control what information is included in the copied logs:
+
+```typescript
+// Strip out various components for cleaner output
+window.DEBUG.copyLogs({
+	stripNamespace: true,    // Remove [plugin-id] prefix
+	stripClass: true,        // Remove class names (ClassName.)
+	stripMethod: true,       // Remove method names (.methodName)
+	stripTimestamp: false,   // Include timestamps (default: true - timestamps OFF)
+	stripLogLevel: false,    // Include log levels like [INFO], [DEBUG] (default: true - log levels OFF)
+	simplifyPaths: false,    // Disable path simplification (default: true - path simplification ON)
+});
+
+// Pre-defined formats
+window.DEBUG.copyLogs({ format: 'message-only' });  // Just the log messages
+window.DEBUG.copyLogs({ format: 'prefix-only' });   // Just the prefixes
+window.DEBUG.copyLogs({ format: 'full' });          // Everything (default)
+
+// Custom template (advanced)
+window.DEBUG.copyLogs({ 
+	format: 'custom',
+	customTemplate: '{timestamp} | {level} | {message}'
+});
+```
+
+**New Features:**
+
+- **Timestamps OFF by default**: Cleaner output without timestamps cluttering the logs
+- **Log levels OFF by default**: No `[INFO]`, `[DEBUG]` prefixes unless explicitly enabled
+- **Automatic path simplification**: Long file paths like `C:\Users\...\very\long\path\to\file.txt` become `.../path/file.txt` for better readability
+
+### Log Management
+
+```typescript
+// Clear stored logs (useful for memory management)
+window.DEBUG.clearLogs();                    // Clear all logs
+window.DEBUG.clearLogs('specific-plugin');   // Clear logs for one plugin
+```
+
+**Use Cases:**
+- Extract error sequences for bug reports with clean, readable paths
+- Share debug output with plugin developers (no timestamp noise)
+- Analyze plugin behavior patterns without clutter
+- Create clean documentation examples with simplified paths
+- Focus on actual log content rather than metadata
+
+**Path Simplification Examples:**
+- `C:\Users\Username\Documents\Projects\my-app\src\components\Button.tsx` → `.../components/Button.tsx`
+- `/home/user/workspace/project/src/utils/helpers.js` → `.../utils/helpers.js`
+- `./src/views/MainView.ts` → `./src/views/MainView.ts` (relative paths preserved)
+- Handles paths with spaces and special characters correctly
 
 ## Quick start for developers
 

@@ -1,5 +1,5 @@
 import type { LogLevel } from './types';
-import { getNamespace, getConfig } from './config';
+import { getNamespace, getConfig, addLogEntry } from './config';
 import { getCallerInfo, formatPrefixCustom, formatPrefixOnly } from './stack-parser';
 import { getRegisteredClassName } from './class-registry';
 
@@ -161,17 +161,42 @@ function log(level: LogLevel, ...args: any[]): void {
 	// Determine prefix and message, supporting component+method overrides for static functions
 	let prefixOnly: string;
 	let messageStr: string;
+	let className: string | undefined;
+	let methodName: string | undefined;
+	
 	// If first logArg is a method name override (static function), use custom prefix template
 	if (component && logArgs.length > 0 && typeof logArgs[0] === 'string' && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(logArgs[0])) {
 		const methodOverride = logArgs[0] as string;
 		const remaining = logArgs.slice(1);
 		prefixOnly = formatPrefixCustom(component, methodOverride);
 		messageStr = remaining.map(arg => typeof arg === 'object' && arg !== null ? safeStringify(arg) : String(arg)).join(' ');
+		className = component;
+		methodName = methodOverride;
 	} else {
 		// Default behavior: use contextInstance or registered class and method from stack
 		messageStr = logArgs.map(arg => typeof arg === 'object' && arg !== null ? safeStringify(arg) : String(arg)).join(' ');
 		prefixOnly = formatPrefixOnly(component, contextInstance);
+		
+		// Extract class and method for storage
+		const callerInfo = getCallerInfo();
+		className = component || callerInfo.className;
+		methodName = callerInfo.methodName;
 	}
+	
+	// Store log entry in history
+	const namespace = getNamespace();
+	const formattedMessage = `${prefixOnly} ${messageStr}`;
+	addLogEntry({
+		timestamp: new Date(),
+		level,
+		namespace,
+		className,
+		methodName,
+		message: messageStr,
+		args: logArgs,
+		formattedMessage
+	});
+	
 	const colors = getConfig().debugColors;
 	const messageColor = getConfig().messageColor;
 	

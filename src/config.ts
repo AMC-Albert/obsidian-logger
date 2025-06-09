@@ -1,4 +1,8 @@
-import type { LogLevel, DebugColors, DebugConfig, FormatTemplate, CallbackFormatTemplate } from './types';
+import type { LogLevel, DebugColors, DebugConfig, FormatTemplate, CallbackFormatTemplate, LogEntry } from './types';
+
+// Log storage - circular buffer to keep recent logs
+const MAX_LOG_ENTRIES = 1000;
+const logHistory: LogEntry[] = [];
 
 // Internal configuration state
 const config: DebugConfig = {
@@ -84,4 +88,21 @@ export function getMessageColor(): string {
 
 export function getConfig(): DebugConfig {
 	return config;
+}
+
+// Log history management
+export function addLogEntry(entry: LogEntry): void {
+	logHistory.push(entry);
+	if (logHistory.length > MAX_LOG_ENTRIES) {
+		logHistory.shift(); // Remove oldest entry
+	}
+}
+
+export function getLogHistory(namespace?: string): LogEntry[] {
+	if (!namespace) return [...logHistory];
+	return logHistory.filter(entry => entry.namespace === namespace);
+}
+
+export function clearLogHistory(): void {
+	logHistory.length = 0;
 }
