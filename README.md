@@ -141,15 +141,44 @@ git submodule add https://github.com/AMC-Albert/obsidian-logger.git
 
 ### Usage
 
+Initialize the logger and `window.DEBUG` system in your plugin's `onload` method.
+
 ```typescript
-import { initLogger, debug, registerLoggerClass } from './obsidian-logger';
+import { Plugin } from 'obsidian';
+import { 
+  initLogger, 
+  initializeDebugSystem,
+  registerLoggerClass, 
+  debug 
+} from './obsidian-logger'; // Adjust path as needed
 
-// In your main plugin class constructor
-initLogger(this);
-registerLoggerClass(this, 'MyPluginClass');
+export default class MyObsidianPlugin extends Plugin {
+  async onload() {
+    // 1. Configure the logger (e.g., sets namespace from plugin ID).
+    initLogger(this);
 
-// Use throughout your code
-debug(this, 'Message'); // → [plugin-id] MyPluginClass.methodName: Message
+    // 2. Register class names for clearer log messages.
+    registerLoggerClass(this, 'MyObsidianPlugin'); // Use your actual class name
+
+    // 3. Initialize the `window.DEBUG` system when Obsidian's workspace is ready.
+    // This ensures `window.DEBUG.copyLogs()` etc. are reliably available.
+    this.app.workspace.onLayoutReady(() => {
+      initializeDebugSystem();
+      debug(this, 'Logger and Debug system initialized (onLayoutReady).');
+      // Example: [your-plugin-id] MyObsidianPlugin.onload: Logger and Debug system initialized (onLayoutReady).
+    });
+
+    debug(this, 'Plugin onload setup complete (pre-layout).');
+
+    // ... rest of your onload logic ...
+  }
+
+  onunload() {
+    // ... your onunload logic ...
+  }
+
+  // ... other methods in your plugin ...
+}
 ```
 
 ### Build configuration for readable stack traces

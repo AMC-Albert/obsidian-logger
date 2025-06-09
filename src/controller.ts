@@ -98,16 +98,12 @@ function simplifyPath(text: string): string {
 // Initialize debug controller
 export function initializeDebugSystem() {
 	if (typeof window === 'undefined') return;
-	
+
 	try {
-		const raw = window.DEBUG;
-		const origEnable = raw?.enable?.bind(raw) ?? (() => '');
-		const origDisable = raw?.disable?.bind(raw) ?? (() => '');
-		const origEnabled = raw?.enabled?.bind(raw) ?? (() => false);
-		const origSetLevel = raw?.setLevel?.bind(raw) ?? (() => '');
-		const origGetLevel = raw?.getLevel?.bind(raw) ?? (() => null);
-		
-		window.DEBUG = {
+		const preExistingDebug = window.DEBUG as DebugAPI | undefined; // Capture pre-existing DEBUG object
+
+		// Define our logger's specific API methods
+		const loggerDebugAPI: DebugAPI = {
 			enable(ns: string, level: LogLevel = 'debug'): string {
 				if (ns === getNamespace() || ns === '*') {
 					const config = getConfig();
@@ -115,39 +111,56 @@ export function initializeDebugSystem() {
 					config.currentLogLevel = level;
 					return `Debug enabled for "${ns}" at level: ${level.toUpperCase()}`;
 				}
-				return origEnable(ns, level);
+				if (preExistingDebug && typeof preExistingDebug.enable === 'function') {
+					return preExistingDebug.enable(ns, level);
+				}
+				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.enable to call.`;
 			},
 			disable(ns: string): string {
 				if (ns === getNamespace() || ns === '*') {
 					const config = getConfig();
 					config.debugEnabled = false;
-					config.currentLogLevel = 'error';
+					config.currentLogLevel = 'error'; // Default to error so critical issues are still logged
 					return `Debug disabled for "${ns}" (errors still visible)`;
 				}
-				return origDisable(ns);
+				if (preExistingDebug && typeof preExistingDebug.disable === 'function') {
+					return preExistingDebug.disable(ns);
+				}
+				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.disable to call.`;
 			},
 			enabled(ns: string): boolean {
 				if (ns === getNamespace() || ns === '*') {
 					return getConfig().debugEnabled;
 				}
-				return origEnabled(ns);
+				if (preExistingDebug && typeof preExistingDebug.enabled === 'function') {
+					return preExistingDebug.enabled(ns);
+				}
+				return false;
 			},
 			setLevel(ns: string, level: LogLevel): string {
 				if (ns === getNamespace() || ns === '*') {
 					const config = getConfig();
 					config.currentLogLevel = level;
+					// If setting a level other than error, ensure debug is enabled
 					if (!config.debugEnabled && level !== 'error') {
 						config.debugEnabled = true;
 					}
 					return `Log level set to ${level.toUpperCase()} for plugin: ${ns}`;
 				}
-				return origSetLevel(ns, level);
-			},			getLevel(ns: string): LogLevel | null {
+				if (preExistingDebug && typeof preExistingDebug.setLevel === 'function') {
+					return preExistingDebug.setLevel(ns, level);
+				}
+				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.setLevel to call.`;
+			},
+			getLevel(ns: string): LogLevel | null {
 				if (ns === getNamespace() || ns === '*') {
 					const config = getConfig();
 					return config.debugEnabled ? config.currentLogLevel : null;
 				}
-				return origGetLevel(ns);
+				if (preExistingDebug && typeof preExistingDebug.getLevel === 'function') {
+					return preExistingDebug.getLevel(ns);
+				}
+				return null;
 			},
 			copyLogs(options: LogCopyOptions = {}): string {
 				const {
@@ -162,14 +175,13 @@ export function initializeDebugSystem() {
 					format = 'full',
 					customTemplate
 				} = options;
-				
+
 				const logs = getLogHistory(namespace).slice(-count);
 				if (logs.length === 0) {
 					return 'No logs found for the specified namespace.';
 				}
-				
+
 				let output: string;
-				
 				switch (format) {
 					case 'message-only':
 						output = logs.map(log => log.message).join('\n');
@@ -200,54 +212,56 @@ export function initializeDebugSystem() {
 					case 'full':
 					default:
 						output = logs.map(log => {
-							let line = '';
-							if (!stripTimestamp) line += `${log.timestamp.toISOString()} `;
-							if (!stripLogLevel) line += `[${log.level.toUpperCase()}] `;
-							if (!stripNamespace) line += `[${log.namespace}] `;
-							if (log.className && !stripClass) line += `${log.className}`;
-							if (log.methodName && !stripMethod) line += `.${log.methodName}`;
-							if ((log.className && !stripClass) || (log.methodName && !stripMethod)) line += ': ';
-							line += log.message;
-							return line;						}).join('\n');
+							// Reconstruct a reasonable full format based on typical stripping options
+							let line = log.formattedMessage;
+							if (stripTimestamp) {
+								// Corrected regex for timestamp stripping - unescaped ')' inside character class
+								line = line.replace(/^\s*[\[\(]?\d{2,4}[-/]\d{1,2}[-/]\d{1,2}[T\s]\d{1,2}:\d{1,2}(:\d{1,2})?(\.\d+)?([Zz]|[+-]\d{2}:?\d{2})?[\])]?\s*/, '');
+							}
+							if (stripLogLevel) {
+								line = line.replace(new RegExp(`\\\\[${log.level.toUpperCase()}\\\\]\\s*`, 'i'), '');
+							}
+							if (stripNamespace) {
+								line = line.replace(new RegExp(`\\\\[${log.namespace}\\\\]\\s*`, 'i'), '');
+							}
+							if (stripClass && log.className) {
+								line = line.replace(new RegExp(`${log.className.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&')}\\.?\\s*`, 'i'), '');
+							}
+							if (stripMethod && log.methodName) {
+								line = line.replace(new RegExp(`${log.methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\\\$&')}\\s*`, 'i'), '');
+							}
+							return line.trim();
+						}).join('\n');
 						break;
 				}
-				
-				// Apply path simplification if enabled
+
 				if (simplifyPaths) {
-					output = simplifyPath(output);
+					output = simplifyPath(output); // simplifyPath is defined in this file
 				}
-				
-				// Copy to clipboard if available
-				if (navigator.clipboard && navigator.clipboard.writeText) {
-					navigator.clipboard.writeText(output).then(() => {
-						// Silent success - clipboard API handles the copy
-					}).catch(() => {
-						console.warn('Failed to copy logs to clipboard');
-					});
-				} else {
-					console.warn('Clipboard API not available');
-				}
-				
-				// Return brief status message instead of the full output
-				return `✓ Copied ${logs.length} log entries to clipboard (${output.length} characters)`;
+				return output;
 			},
 			clearLogs(ns?: string): string {
 				const targetNamespace = ns || getNamespace();
-				if (targetNamespace === '*') {
-					clearLogHistory();
-					return 'All log history cleared';
-				} else {
-					// For specific namespace, we'd need to implement selective clearing
-					// For now, just clear all since it's simpler
-					clearLogHistory();
-					return `Log history cleared for namespace: ${targetNamespace}`;
-				}
+                // Assuming clearLogHistory can take an optional namespace or handle undefined if no specific namespace is given.
+                // If clearLogHistory strictly expects 0 args, this call needs to be clearLogHistory() and logic adjusted.
+				clearLogHistory(targetNamespace); 
+				return `Logs cleared for namespace: ${targetNamespace}`;
 			}
 		};
-	} catch (error) {
-		console.warn('Failed to initialize debug system:', error);
+
+		// Ensure window.DEBUG is an object before assigning to it
+		if (typeof window.DEBUG !== 'object' || window.DEBUG === null) {
+			(window.DEBUG as any) = {}; // Initialize if not an object (or null)
+		}
+
+		// Merge our API into window.DEBUG
+		Object.assign(window.DEBUG as object, loggerDebugAPI);
+
+	} catch (e) {
+		console.error('Failed to initialize or update debug system:', e);
+		// Fallback: ensure window.DEBUG is at least an empty object
+		if (typeof window.DEBUG !== 'object' || window.DEBUG === null) {
+			(window.DEBUG as any) = {};
+		}
 	}
 }
-
-// Initialize the controller when this module is imported
-initializeDebugSystem();

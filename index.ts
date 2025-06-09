@@ -24,5 +24,8 @@ export { registerLoggerClass } from './src/class-registry';
 // Export logger functions
 export { debug, info, warn, error } from './src/loggers';
 
+// Export the debug system initializer
+export { initializeDebugSystem } from './src/controller';
+
 // Initialize the debug controller
 import './src/controller';

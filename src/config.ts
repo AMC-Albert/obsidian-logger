@@ -103,6 +103,24 @@ export function getLogHistory(namespace?: string): LogEntry[] {
 	return logHistory.filter(entry => entry.namespace === namespace);
 }
 
-export function clearLogHistory(): void {
-	logHistory.length = 0;
+export function clearLogHistory(namespace?: string): void {
+	if (namespace) {
+		const originalLength = logHistory.length;
+		let newLength = 0;
+		// Iterate backwards to safely remove elements
+		for (let i = originalLength - 1; i >= 0; i--) {
+			if (logHistory[i].namespace === namespace) {
+				// If we need to remove it, we can splice or shift elements
+				// For simplicity here, let's build a new array if filtering is needed often
+				// or use a more efficient removal if this is a hot path.
+				// A simple approach for now, though not the most performant for large arrays:
+				logHistory.splice(i, 1);
+			} else {
+				newLength++;
+			}
+		}
+	} else {
+		// Clear all logs if no namespace is provided
+		logHistory.length = 0;
+	}
 }
