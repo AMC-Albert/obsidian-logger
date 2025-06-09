@@ -236,9 +236,30 @@ export function initializeDebugSystem() {
 				}
 
 				if (simplifyPaths) {
-					output = simplifyPath(output); // simplifyPath is defined in this file
+					output = simplifyPath(output); // output here is the final string of logs
 				}
-				return output;
+
+				// --- New logic starts here ---
+				const logStringToCopy = output;
+
+				if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+					navigator.clipboard.writeText(logStringToCopy)
+						.then(() => {
+							// Successfully copied to clipboard. The function will return a confirmation.
+							// You could add a console.debug here if you want to log success for the logger's own debugging.
+						})
+						.catch(err => {
+							// Failed to copy. Log an error to the console so the user is aware.
+							console.error('Logger: Failed to automatically copy logs to clipboard:', err);
+						});
+					const lineCount = logStringToCopy.split('\n').length;
+					return `Copied ${lineCount} log line(s) to clipboard.`;
+				} else {
+					// Clipboard API not available.
+					console.warn('Logger: Clipboard API (navigator.clipboard.writeText) is not available in this environment. Logs cannot be copied automatically.');
+					return 'Clipboard API not available. Logs could not be copied to clipboard automatically.';
+				}
+				// --- Original 'return output;' is replaced by the logic above ---
 			},
 			clearLogs(ns?: string): string {
 				const targetNamespace = ns || getNamespace();
