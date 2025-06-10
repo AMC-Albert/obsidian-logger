@@ -3,11 +3,11 @@ import { getNamespace, getConfig, getLogHistory, clearLogHistory } from './confi
 
 // Define an interface for the DEBUG object
 interface DebugAPI {
-	enable: (ns: string, level?: LogLevel) => string;
-	disable: (ns: string) => string;
-	enabled: (ns: string) => boolean;
-	setLevel: (ns: string, level: LogLevel) => string;
-	getLevel: (ns: string) => LogLevel | null;
+	enable: (level?: LogLevel) => string;
+	disable: () => string;
+	enabled: () => boolean;
+	setLevel: (level: LogLevel) => string;
+	getLevel: () => LogLevel | null;
 	copyLogs: (options?: LogCopyOptions) => string;
 	clearLogs: (ns?: string) => string;
 }
@@ -28,7 +28,8 @@ interface LogCopyOptions {
 // Extend the Window interface to include the DEBUG property
 declare global {
 	interface Window {
-		DEBUG?: DebugAPI;
+	   // Mapping of plugin namespaces to their DebugAPI instances
+	   DEBUG?: Record<string, DebugAPI>;
 	}
 }
 
@@ -105,63 +106,38 @@ export function initializeDebugSystem() {
 
 		// Define our logger's specific API methods
 		const loggerDebugAPI: DebugAPI = {
-			enable(ns: string, level: LogLevel = 'debug'): string {
-				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
-					const config = getConfig();
+			enable(level: LogLevel = 'debug'): string {
+				// Enable debug for this plugin namespace
+				const config = getConfig();
+				config.debugEnabled = true;
+				config.currentLogLevel = level;
+				return `Debug enabled for "${currentPluginNamespace}" at level: ${level.toUpperCase()}`;
+			},
+			disable(): string {
+				// Disable debug for this plugin namespace
+				const config = getConfig();
+				config.debugEnabled = false;
+				config.currentLogLevel = 'error'; // Default to error so critical issues are still logged
+				return `Debug disabled for "${currentPluginNamespace}" (errors still visible)`;
+			},
+			enabled(): boolean {
+				// Check debug status for this plugin namespace
+				return getConfig().debugEnabled;
+			},
+			setLevel(level: LogLevel): string {
+				// Set log level for this plugin namespace
+				const config = getConfig();
+				config.currentLogLevel = level;
+				// If setting a level other than error, ensure debug is enabled
+				if (!config.debugEnabled && level !== 'error') {
 					config.debugEnabled = true;
-					config.currentLogLevel = level;
-					return `Debug enabled for "${ns}" at level: ${level.toUpperCase()}`;
 				}
-				if (preExistingDebug && typeof preExistingDebug.enable === 'function') {
-					return preExistingDebug.enable(ns, level);
-				}
-				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.enable to call.`;
+				return `Log level set to ${level.toUpperCase()} for plugin: ${currentPluginNamespace}`;
 			},
-			disable(ns: string): string {
-				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
-					const config = getConfig();
-					config.debugEnabled = false;
-					config.currentLogLevel = 'error'; // Default to error so critical issues are still logged
-					return `Debug disabled for "${ns}" (errors still visible)`;
-				}
-				if (preExistingDebug && typeof preExistingDebug.disable === 'function') {
-					return preExistingDebug.disable(ns);
-				}
-				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.disable to call.`;
-			},
-			enabled(ns: string): boolean {
-				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
-					return getConfig().debugEnabled;
-				}
-				if (preExistingDebug && typeof preExistingDebug.enabled === 'function') {
-					return preExistingDebug.enabled(ns);
-				}
-				return false;
-			},
-			setLevel(ns: string, level: LogLevel): string {
-				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
-					const config = getConfig();
-					config.currentLogLevel = level;
-					// If setting a level other than error, ensure debug is enabled
-					if (!config.debugEnabled && level !== 'error') {
-						config.debugEnabled = true;
-					}
-					return `Log level set to ${level.toUpperCase()} for plugin: ${ns}`;
-				}
-				if (preExistingDebug && typeof preExistingDebug.setLevel === 'function') {
-					return preExistingDebug.setLevel(ns, level);
-				}
-				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.setLevel to call.`;
-			},
-			getLevel(ns: string): LogLevel | null {
-				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
-					const config = getConfig();
-					return config.debugEnabled ? config.currentLogLevel : null;
-				}
-				if (preExistingDebug && typeof preExistingDebug.getLevel === 'function') {
-					return preExistingDebug.getLevel(ns);
-				}
-				return null;
+			getLevel(): LogLevel | null {
+				// Get log level for this plugin namespace
+				const config = getConfig();
+				return config.debugEnabled ? config.currentLogLevel : null;
 			},
 			copyLogs(options: LogCopyOptions = {}): string {
 				const {
@@ -272,8 +248,8 @@ export function initializeDebugSystem() {
 			},
 			clearLogs(ns?: string): string {
 				const targetNamespace = ns || currentPluginNamespace; // Use captured namespace if ns is not provided
-                // Assuming clearLogHistory can take an optional namespace or handle undefined if no specific namespace is given.
-                // If clearLogHistory strictly expects 0 args, this call needs to be clearLogHistory() and logic adjusted.
+				// Assuming clearLogHistory can take an optional namespace or handle undefined if no specific namespace is given.
+				// If clearLogHistory strictly expects 0 args, this call needs to be clearLogHistory() and logic adjusted.
 				clearLogHistory(targetNamespace); 
 				return `Logs cleared for namespace: ${targetNamespace}`;
 			}
@@ -284,8 +260,8 @@ export function initializeDebugSystem() {
 			(window.DEBUG as any) = {}; // Initialize if not an object (or null)
 		}
 
-		// Merge our API into window.DEBUG
-		Object.assign(window.DEBUG as object, loggerDebugAPI);
+		// Assign our API under the plugin's own namespace key, avoiding overwriting global methods
+		(window.DEBUG as any)[currentPluginNamespace] = loggerDebugAPI;
 
 	} catch (e) {
 		console.error('Failed to initialize or update debug system:', e);
@@ -293,5 +269,23 @@ export function initializeDebugSystem() {
 		if (typeof window.DEBUG !== 'object' || window.DEBUG === null) {
 			(window.DEBUG as any) = {};
 		}
+	}
+}
+
+function shouldLog(level: LogLevel): boolean {
+	if (typeof window === 'undefined') return false;
+	if (level === 'error') return true; // Errors always show
+
+	try {
+		// Use namespace-specific debug controller
+		const namespace = getNamespace();
+	   const nsController = window.DEBUG?.[namespace];
+		if (!nsController?.enabled()) return false;
+		const currentLevel = nsController.getLevel() as LogLevel;
+		// Compare numeric levels: error=0, warn=1, info=2, debug=3
+		const levels: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
+		return levels[level] <= levels[currentLevel];
+	} catch {
+		return false;
 	}
 }

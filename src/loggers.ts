@@ -118,11 +118,17 @@ function shouldLog(level: LogLevel): boolean {
 	if (level === 'error') return true; // Errors always show
 	
 	try {
-		const debugController = window.DEBUG;
-		if (!debugController?.enabled?.(getNamespace())) return false;
+		// Use namespace-specific debug controller
+		const namespace = getNamespace();
+		const nsController = window.DEBUG?.[namespace];
+		if (!nsController?.enabled()) return false;
 		
-		const currentLevel = debugController.getLevel?.(getNamespace()) as LogLevel;
-		return currentLevel && { error: 0, warn: 1, info: 2, debug: 3 }[level] <= { error: 0, warn: 1, info: 2, debug: 3 }[currentLevel];
+		const currentLevel = nsController.getLevel() as LogLevel;
+		if (!currentLevel) return false;
+		
+		// Compare numeric levels: error=0, warn=1, info=2, debug=3
+		const levels: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
+		return levels[level] <= levels[currentLevel];
 	} catch {
 		return false;
 	}
