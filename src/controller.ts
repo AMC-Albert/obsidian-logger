@@ -101,11 +101,12 @@ export function initializeDebugSystem() {
 
 	try {
 		const preExistingDebug = window.DEBUG as DebugAPI | undefined; // Capture pre-existing DEBUG object
+		const currentPluginNamespace = getNamespace(); // Capture namespace at initialization time
 
 		// Define our logger's specific API methods
 		const loggerDebugAPI: DebugAPI = {
 			enable(ns: string, level: LogLevel = 'debug'): string {
-				if (ns === getNamespace() || ns === '*') {
+				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
 					const config = getConfig();
 					config.debugEnabled = true;
 					config.currentLogLevel = level;
@@ -117,7 +118,7 @@ export function initializeDebugSystem() {
 				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.enable to call.`;
 			},
 			disable(ns: string): string {
-				if (ns === getNamespace() || ns === '*') {
+				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
 					const config = getConfig();
 					config.debugEnabled = false;
 					config.currentLogLevel = 'error'; // Default to error so critical issues are still logged
@@ -129,7 +130,7 @@ export function initializeDebugSystem() {
 				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.disable to call.`;
 			},
 			enabled(ns: string): boolean {
-				if (ns === getNamespace() || ns === '*') {
+				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
 					return getConfig().debugEnabled;
 				}
 				if (preExistingDebug && typeof preExistingDebug.enabled === 'function') {
@@ -138,7 +139,7 @@ export function initializeDebugSystem() {
 				return false;
 			},
 			setLevel(ns: string, level: LogLevel): string {
-				if (ns === getNamespace() || ns === '*') {
+				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
 					const config = getConfig();
 					config.currentLogLevel = level;
 					// If setting a level other than error, ensure debug is enabled
@@ -153,7 +154,7 @@ export function initializeDebugSystem() {
 				return `Namespace "${ns}" not recognized. No pre-existing DEBUG.setLevel to call.`;
 			},
 			getLevel(ns: string): LogLevel | null {
-				if (ns === getNamespace() || ns === '*') {
+				if (ns === currentPluginNamespace || ns === '*') { // Use captured namespace
 					const config = getConfig();
 					return config.debugEnabled ? config.currentLogLevel : null;
 				}
@@ -164,7 +165,7 @@ export function initializeDebugSystem() {
 			},
 			copyLogs(options: LogCopyOptions = {}): string {
 				const {
-					namespace = getNamespace(),
+					namespace = currentPluginNamespace, // Use captured namespace as default
 					count = 50,
 					stripNamespace = false,
 					stripClass = false,
@@ -270,7 +271,7 @@ export function initializeDebugSystem() {
 				// --- Original 'return output;' is replaced by the logic above ---
 			},
 			clearLogs(ns?: string): string {
-				const targetNamespace = ns || getNamespace();
+				const targetNamespace = ns || currentPluginNamespace; // Use captured namespace if ns is not provided
                 // Assuming clearLogHistory can take an optional namespace or handle undefined if no specific namespace is given.
                 // If clearLogHistory strictly expects 0 args, this call needs to be clearLogHistory() and logic adjusted.
 				clearLogHistory(targetNamespace); 

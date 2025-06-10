@@ -26,17 +26,13 @@ const config: DebugConfig = {
 // Function to initialize the debug system with a plugin instance
 export function initLogger(plugin: { manifest: { id: string } }): void {
 	config.globalNamespace = plugin.manifest.id;
+	config.pluginIdForStackParsing = plugin.manifest.id; // Also set for stack parsing
 }
 
 // Function to get the current namespace
 export function getNamespace(): string {
 	if (config.namespaceOverride) return config.namespaceOverride;
 	return config.globalNamespace || 'obsidian-plugin';
-}
-
-// New function to set the plugin ID for stack parsing
-export function setLoggerPluginId(pluginId: string): void {
-	config.pluginIdForStackParsing = pluginId;
 }
 
 // New getter for the plugin ID for stack parsing

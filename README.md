@@ -102,12 +102,6 @@ window.DEBUG.copyLogs({
 });
 ```
 
-**New Features:**
-
-- **Timestamps OFF by default**: Cleaner output without timestamps cluttering the logs
-- **Log levels OFF by default**: No `[INFO]`, `[DEBUG]` prefixes unless explicitly enabled
-- **Automatic path simplification**: Long file paths like `C:\Users\...\very\long\path\to\file.txt` become `.../path/file.txt` for better readability
-
 ### Log Management
 
 ```typescript
@@ -115,19 +109,6 @@ window.DEBUG.copyLogs({
 window.DEBUG.clearLogs();                    // Clear all logs
 window.DEBUG.clearLogs('specific-plugin');   // Clear logs for one plugin
 ```
-
-**Use Cases:**
-- Extract error sequences for bug reports with clean, readable paths
-- Share debug output with plugin developers (no timestamp noise)
-- Analyze plugin behavior patterns without clutter
-- Create clean documentation examples with simplified paths
-- Focus on actual log content rather than metadata
-
-**Path Simplification Examples:**
-- `C:\Users\Username\Documents\Projects\my-app\src\components\Button.tsx` → `.../components/Button.tsx`
-- `/home/user/workspace/project/src/utils/helpers.js` → `.../utils/helpers.js`
-- `./src/views/MainView.ts` → `./src/views/MainView.ts` (relative paths preserved)
-- Handles paths with spaces and special characters correctly
 
 ## Quick start for developers
 
