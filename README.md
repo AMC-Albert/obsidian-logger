@@ -18,23 +18,22 @@ To debug any plugin that uses this logger system, open the Developer Console `(C
 
 ```typescript
 // Enable debugging for a specific plugin
-window.DEBUG.enable('plugin-id');
+window.DEBUG['plugin-id'].enable();
 
 // Optionally provide a log level (debug by default)
-window.DEBUG.enable('plugin-id', 'debug');
+window.DEBUG['plugin-id'].enable('debug');
 
 // Set log level
-window.DEBUG.setLevel('plugin-id', 'warn');
+window.DEBUG['plugin-id'].setLevel('warn');
 
 // Disable debugging for a plugin
-window.DEBUG.disable('plugin-id');
+window.DEBUG['plugin-id'].disable();
 
 // Copy recent logs to clipboard (developer tools)
-window.DEBUG.copyLogs(); // Copy last 50 logs from current plugin
+window.DEBUG['plugin-id'].copyLogs(); // Copy last 50 logs from current plugin
 
 // Copy with custom options
-window.DEBUG.copyLogs({
-	namespace: 'plugin-id',     // Specific plugin (default: current)
+window.DEBUG['plugin-id'].copyLogs({
 	count: 100,                 // Number of recent logs (default: 50)
 	stripNamespace: true,       // Remove [plugin-id] prefix
 	stripClass: true,           // Remove class names
@@ -45,9 +44,6 @@ window.DEBUG.copyLogs({
 	format: 'message-only'      // 'full', 'prefix-only', 'message-only', 'custom'
 });
 
-// Clear stored logs
-window.DEBUG.clearLogs();           // Clear all logs
-window.DEBUG.clearLogs('plugin-id'); // Clear logs for specific plugin
 ```
 
 **Log levels** (from most to least verbose):
@@ -66,13 +62,7 @@ The logger automatically stores recent log entries (up to 1000) that you can exp
 
 ```typescript
 // Copy last 50 logs from current plugin with full formatting
-window.DEBUG.copyLogs();
-
-// Copy specific number of logs
-window.DEBUG.copyLogs({ count: 100 });
-
-// Copy logs from a specific plugin
-window.DEBUG.copyLogs({ namespace: 'other-plugin-id' });
+window.DEBUG['plugin-id'].copyLogs();
 ```
 
 ### Formatting Options
@@ -81,7 +71,7 @@ Control what information is included in the copied logs:
 
 ```typescript
 // Strip out various components for cleaner output
-window.DEBUG.copyLogs({
+window.DEBUG['plugin-id'].copyLogs({
 	stripNamespace: true,    // Remove [plugin-id] prefix
 	stripClass: true,        // Remove class names (ClassName.)
 	stripMethod: true,       // Remove method names (.methodName)
@@ -91,23 +81,15 @@ window.DEBUG.copyLogs({
 });
 
 // Pre-defined formats
-window.DEBUG.copyLogs({ format: 'message-only' });  // Just the log messages
-window.DEBUG.copyLogs({ format: 'prefix-only' });   // Just the prefixes
-window.DEBUG.copyLogs({ format: 'full' });          // Everything (default)
+window.DEBUG['plugin-id'].copyLogs({ format: 'message-only' });  // Just the log messages
+window.DEBUG['plugin-id'].copyLogs({ format: 'prefix-only' });   // Just the prefixes
+window.DEBUG['plugin-id'].copyLogs({ format: 'full' });          // Everything (default)
 
-// Custom template (advanced)
-window.DEBUG.copyLogs({ 
+// Custom template
+window.DEBUG['plugin-id'].copyLogs({ 
 	format: 'custom',
 	customTemplate: '{timestamp} | {level} | {message}'
 });
-```
-
-### Log Management
-
-```typescript
-// Clear stored logs (useful for memory management)
-window.DEBUG.clearLogs();                    // Clear all logs
-window.DEBUG.clearLogs('specific-plugin');   // Clear logs for one plugin
 ```
 
 ## Quick start for developers
@@ -142,7 +124,7 @@ export default class MyObsidianPlugin extends Plugin {
     registerLoggerClass(this, 'MyObsidianPlugin'); // Use your actual class name
 
     // 3. Initialize the `window.DEBUG` system when Obsidian's workspace is ready.
-    // This ensures `window.DEBUG.copyLogs()` etc. are reliably available.
+    // This ensures `window.DEBUG['plugin-id'].copyLogs()` etc. are reliably available.
     this.app.workspace.onLayoutReady(() => {
       initializeDebugSystem();
       loggerDebug(this, 'Logger and Debug system initialized (onLayoutReady).');
@@ -219,7 +201,7 @@ For standalone functions or modules (no class instance), provide component and m
 ```typescript
 import { debug } from './obsidian-logger';
 
-debug('DateParser', 'parseDate', 'Parsing text:', text);
+loggerDebug('DateParser', 'parseDate', 'Parsing text:', text);
 // → [plugin-id] DateParser.parseDate: Parsing text: "Today"  
 ```
 
