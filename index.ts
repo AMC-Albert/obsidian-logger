@@ -16,8 +16,7 @@ export {
 	getFormatTemplate,
 	getCallbackFormatTemplate,
 	getMessageColor,
-    setLoggerPluginId, // Added export
-    getLoggerPluginIdForStackParsing // Added export
+    getLoggerPluginIdForStackParsing
 } from './src/config';
 
 // Export class registration
