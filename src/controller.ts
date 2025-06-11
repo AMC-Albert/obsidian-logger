@@ -254,38 +254,18 @@ export function initializeDebugSystem() {
 				return `Logs cleared for namespace: ${targetNamespace}`;
 			}
 		};
-
 		// Ensure window.DEBUG is an object before assigning to it
-		if (typeof window.DEBUG !== 'object' || window.DEBUG === null) {
-			(window.DEBUG as any) = {}; // Initialize if not an object (or null)
+		if (!window.DEBUG || typeof window.DEBUG !== 'object') {
+			window.DEBUG = {}; // Initialize if not an object
 		}
 
 		// Assign our API under the plugin's own namespace key, avoiding overwriting global methods
-		(window.DEBUG as any)[currentPluginNamespace] = loggerDebugAPI;
-
+		window.DEBUG[currentPluginNamespace] = loggerDebugAPI;
 	} catch (e) {
 		console.error('Failed to initialize or update debug system:', e);
 		// Fallback: ensure window.DEBUG is at least an empty object
-		if (typeof window.DEBUG !== 'object' || window.DEBUG === null) {
-			(window.DEBUG as any) = {};
+		if (!window.DEBUG || typeof window.DEBUG !== 'object') {
+			window.DEBUG = {};
 		}
-	}
-}
-
-function shouldLog(level: LogLevel): boolean {
-	if (typeof window === 'undefined') return false;
-	if (level === 'error') return true; // Errors always show
-
-	try {
-		// Use namespace-specific debug controller
-		const namespace = getNamespace();
-	   const nsController = window.DEBUG?.[namespace];
-		if (!nsController?.enabled()) return false;
-		const currentLevel = nsController.getLevel() as LogLevel;
-		// Compare numeric levels: error=0, warn=1, info=2, debug=3
-		const levels: Record<LogLevel, number> = { error: 0, warn: 1, info: 2, debug: 3 };
-		return levels[level] <= levels[currentLevel];
-	} catch {
-		return false;
 	}
 }
