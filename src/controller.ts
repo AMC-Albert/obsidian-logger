@@ -15,10 +15,10 @@ interface DebugAPI {
 interface LogCopyOptions {
 	namespace?: string;
 	count?: number;
-	stripNamespace?: boolean;
+	includeNamespace?: boolean;
 	stripClass?: boolean;
 	stripMethod?: boolean;
-	stripTimestamp?: boolean;
+	includeTimestamp?: boolean;
 	stripLogLevel?: boolean;
 	simplifyPaths?: boolean;
 	format?: 'full' | 'prefix-only' | 'message-only' | 'custom';
@@ -143,10 +143,10 @@ export function initializeDebugSystem() {
 				const {
 					namespace = currentPluginNamespace, // Use captured namespace as default
 					count = 50,
-					stripNamespace = false,
+					includeNamespace = false,
 					stripClass = false,
 					stripMethod = false,
-					stripTimestamp = true,
+					includeTimestamp = true,
 					stripLogLevel = true,
 					simplifyPaths = true,
 					format = 'full',
@@ -191,7 +191,7 @@ export function initializeDebugSystem() {
 						output = logs.map(log => {
 							// Reconstruct a reasonable full format based on typical stripping options
 							let line = log.formattedMessage;
-							if (stripTimestamp) {
+							if (includeTimestamp) {
 								// Corrected regex for timestamp stripping - unescaped ')' inside character class
 								line = line.replace(/^\s*[\[\(]?\d{2,4}[-/]\d{1,2}[-/]\d{1,2}[T\s]\d{1,2}:\d{1,2}(:\d{1,2})?(\.\d+)?([Zz]|[+-]\d{2}:?\d{2})?[\])]?\s*/, '');
 							}
@@ -202,7 +202,7 @@ export function initializeDebugSystem() {
 									line = line.slice(lvlPrefix.length).trimStart();
 								}
 							}
-							if (stripNamespace) {
+							if (!includeNamespace) {
 								// Remove leading [namespace]
 								const nsPrefix = `[${log.namespace}]`;
 								if (line.startsWith(nsPrefix)) {

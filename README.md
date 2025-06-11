@@ -35,10 +35,10 @@ window.DEBUG['plugin-id'].copyLogs(); // Copy last 50 logs from current plugin
 // Copy with custom options
 window.DEBUG['plugin-id'].copyLogs({
 	count: 100,                 // Number of recent logs (default: 50)
-	stripNamespace: true,       // Remove [plugin-id] prefix
+	includeNamespace: true,       // Remove [plugin-id] prefix
 	stripClass: true,           // Remove class names
 	stripMethod: true,          // Remove method names
-	stripTimestamp: false,      // Include timestamps (default: true - off)
+	includeTimestamp: false,      // Include timestamps (default: true - off)
 	stripLogLevel: false,       // Include log levels like [INFO] (default: true - off)
 	simplifyPaths: false,       // Disable path simplification (default: true - on)
 	format: 'message-only'      // 'full', 'prefix-only', 'message-only', 'custom'
@@ -72,11 +72,11 @@ Control what information is included in the copied logs:
 ```typescript
 // Strip out various components for cleaner output
 window.DEBUG['plugin-id'].copyLogs({
-	stripNamespace: true,    // Remove [plugin-id] prefix
-	stripClass: true,        // Remove class names (ClassName.)
-	stripMethod: true,       // Remove method names (.methodName)
-	stripTimestamp: false,   // Include timestamps (default: true - timestamps OFF)
-	stripLogLevel: false,    // Include log levels like [INFO], [DEBUG] (default: true - log levels OFF)
+	includeNamespace: false, // include [plugin-id] prefix
+	stripClass: false,       // Remove class names (ClassName.)
+	stripMethod: false,      // Remove method names (.methodName)
+	includeTimestamp: false, // Include timestamps
+	stripLogLevel: false,    // Include log levels like [INFO], [DEBUG]
 	simplifyPaths: false,    // Disable path simplification (default: true - path simplification ON)
 });
 
