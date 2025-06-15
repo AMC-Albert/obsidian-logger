@@ -8,7 +8,7 @@ export interface LogEntry {
 	className?: string;
 	methodName?: string;
 	message: string;
-	args: any[];
+	args: unknown[];
 	formattedMessage: string;
 }
 

@@ -112,7 +112,7 @@ import { getNamespace, getFormatTemplate, getCallbackFormatTemplate } from './co
 import { getRegisteredClassName } from './class-registry';
 
 // Customizable format function that uses templates and detects callback contexts
-export function formatPrefixCustom(component?: string, contextInstance?: any, message?: string): string {
+export function formatPrefixCustom(component?: string, contextInstance?: unknown, message?: string): string {
 	const namespace = getNamespace();
 	let derivedClassName: string | null = null;
 	let derivedMethodName: string | null = null;
@@ -199,7 +199,7 @@ export function formatPrefixCustom(component?: string, contextInstance?: any, me
 }
 
 // Function to format just the prefix part (without message) for separate styling
-export function formatPrefixOnly(component?: string, contextInstance?: any): string {
+export function formatPrefixOnly(component?: string, contextInstance?: unknown): string {
 	// This function can leverage formatPrefixCustom by passing a placeholder message
 	// and then removing it, to avoid duplicating logic.
 	// However, for directness and potential minor optimization, we'll keep it separate but aligned.

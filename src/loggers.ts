@@ -4,18 +4,18 @@ import { getCallerInfo, formatPrefixCustom, formatPrefixOnly } from './stack-par
 import { getRegisteredClassName } from './class-registry';
 
 // Safe JSON stringification that handles circular references
-function safeStringify(obj: any, maxDepth = 3): string {
+function safeStringify(obj: unknown, maxDepth = 3): string {
 	const seen = new WeakSet();
 	
-	function stringifyWithCircularCheck(value: any, depth = 0): string {
+	function stringifyWithCircularCheck(value: unknown, depth = 0): string {
 		// Handle primitives
 		if (value === null) return 'null';
 		if (value === undefined) return 'undefined';
 		if (typeof value !== 'object') return String(value);
 		
 		// Check for circular reference
-		if (seen.has(value)) return '[Circular]';
-		seen.add(value);
+		if (seen.has(value as object)) return '[Circular]';
+		seen.add(value as object);
 		
 		try {
 			// Handle arrays
@@ -27,8 +27,9 @@ function safeStringify(obj: any, maxDepth = 3): string {
 			}
 			
 			// For DOM elements, return a simple representation
-			if (value.nodeType && value.nodeName) {
-				return `<${value.nodeName.toLowerCase()}${value.id ? ` id="${value.id}"` : ''}${value.className ? ` class="${value.className}"` : ''}>`;
+			if (typeof value === 'object' && value !== null && 'nodeType' in value && 'nodeName' in value) {
+				const element = value as { nodeType: unknown; nodeName: string; id?: string; className?: string };
+				return `<${element.nodeName.toLowerCase()}${element.id ? ` id="${element.id}"` : ''}${element.className ? ` class="${element.className}"` : ''}>`;
 			}
 			
 			// Handle objects
@@ -54,13 +55,15 @@ function safeStringify(obj: any, maxDepth = 3): string {
 			}
 			
 			// Prioritize constructor.name if available and not a generic Object/Function
-			if (typeof value.constructor === 'function' && value.constructor.name && value.constructor.name !== 'Object' && value.constructor.name !== 'Function') {
-				const className = value.constructor.name;
+			const valueAsObject = value as { constructor?: { name?: string } };
+			if (typeof valueAsObject.constructor === 'function' && valueAsObject.constructor.name && valueAsObject.constructor.name !== 'Object' && valueAsObject.constructor.name !== 'Function') {
+				const className = valueAsObject.constructor.name;
 				// Show a few key properties if they exist and are simple
 				const keyProps: string[] = [];
+				const valueWithKeys = value as Record<string, unknown>;
 				for (const key of ['name', 'id', 'type', 'status', 'length']) {
-					if (key in value && typeof value[key] !== 'object' && typeof value[key] !== 'function') {
-						keyProps.push(`${key}: ${String(value[key])}`);
+					if (key in valueWithKeys && typeof valueWithKeys[key] !== 'object' && typeof valueWithKeys[key] !== 'function') {
+						keyProps.push(`${key}: ${String(valueWithKeys[key])}`);
 						if (keyProps.length >= 3) break;
 					}
 				}
@@ -72,9 +75,10 @@ function safeStringify(obj: any, maxDepth = 3): string {
 			if (registeredName) {
 				// Show a few key properties if they exist and are simple
 				const keyProps: string[] = [];
+				const valueWithKeys = value as Record<string, unknown>;
 				for (const key of ['name', 'id', 'type', 'status', 'length']) {
-					if (key in value && typeof value[key] !== 'object' && typeof value[key] !== 'function') {
-						keyProps.push(`${key}: ${String(value[key])}`);
+					if (key in valueWithKeys && typeof valueWithKeys[key] !== 'object' && typeof valueWithKeys[key] !== 'function') {
+						keyProps.push(`${key}: ${String(valueWithKeys[key])}`);
 						if (keyProps.length >= 3) break;
 					}
 				}
@@ -82,7 +86,8 @@ function safeStringify(obj: any, maxDepth = 3): string {
 			}
 			
 			// For plain objects without a useful constructor.name or registered name, show properties
-			const keys = Object.keys(value);
+			const valueAsRecord = value as Record<string, unknown>;
+			const keys = Object.keys(valueAsRecord);
 			if (keys.length === 0) {
 				return '{}';
 			}
@@ -91,7 +96,7 @@ function safeStringify(obj: any, maxDepth = 3): string {
 			const keysToShow = keys.length <= 5 ? keys : keys.slice(0, 5);
 			const props = keysToShow.map(key => {
 				try {
-					const val = stringifyWithCircularCheck(value[key], depth + 1);
+					const val = stringifyWithCircularCheck(valueAsRecord[key], depth + 1);
 					// Quote strings for better readability
 					const quotedKey = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(key) ? key : `"${key}"`;
 					return `${quotedKey}: ${val}`;
@@ -105,7 +110,7 @@ function safeStringify(obj: any, maxDepth = 3): string {
 		} catch {
 			return '[Object]';
 		} finally {
-			seen.delete(value);
+			seen.delete(value as object);
 		}
 	}
 	
@@ -135,13 +140,13 @@ function shouldLog(level: LogLevel): boolean {
 }
 
 // Helper function to parse arguments and extract component/context
-function parseLogArgs(args: any[]): {
+function parseLogArgs(args: unknown[]): {
 	component: string | undefined;
-	contextInstance: any;
-	logArgs: any[];
+	contextInstance: unknown;
+	logArgs: unknown[];
 } {
 	let component: string | undefined;
-	let contextInstance: any = undefined;
+	let contextInstance: unknown = undefined;
 	let logArgs = args;
 	
 	// Check if first argument is a component override (string) or context instance
@@ -159,7 +164,7 @@ function parseLogArgs(args: any[]): {
 }
 
 // Consolidated logging function
-function loggerLog(level: LogLevel, ...args: any[]): void {
+function loggerLog(level: LogLevel, ...args: unknown[]): void {
 	if (!shouldLog(level)) return;
 	
 	const { component, contextInstance, logArgs } = parseLogArgs(args);
@@ -228,26 +233,26 @@ function loggerLog(level: LogLevel, ...args: any[]): void {
 }
 
 // Export debug helpers with function overloads
-export function loggerDebug(componentOrInstance?: string | any, ...args: any[]): void;
-export function loggerDebug(...args: any[]): void;
-export function loggerDebug(...args: any[]) {
+export function loggerDebug(componentOrInstance?: string | object, ...args: unknown[]): void;
+export function loggerDebug(...args: unknown[]): void;
+export function loggerDebug(...args: unknown[]) {
 	loggerLog('debug', ...args);
 }
 
-export function loggerInfo(componentOrInstance?: string | any, ...args: any[]): void;
-export function loggerInfo(...args: any[]): void;
-export function loggerInfo(...args: any[]) {
+export function loggerInfo(componentOrInstance?: string | object, ...args: unknown[]): void;
+export function loggerInfo(...args: unknown[]): void;
+export function loggerInfo(...args: unknown[]) {
 	loggerLog('info', ...args);
 }
 
-export function loggerWarn(componentOrInstance?: string | any, ...args: any[]): void;
-export function loggerWarn(...args: any[]): void;
-export function loggerWarn(...args: any[]) {
+export function loggerWarn(componentOrInstance?: string | object, ...args: unknown[]): void;
+export function loggerWarn(...args: unknown[]): void;
+export function loggerWarn(...args: unknown[]) {
 	loggerLog('warn', ...args);
 }
 
-export function loggerError(componentOrInstance?: string | any, ...args: any[]): void;
-export function loggerError(...args: any[]): void;
-export function loggerError(...args: any[]) {
+export function loggerError(componentOrInstance?: string | object, ...args: unknown[]): void;
+export function loggerError(...args: unknown[]): void;
+export function loggerError(...args: unknown[]) {
 	loggerLog('error', ...args);
 }
