@@ -34,24 +34,16 @@ function safeStringify(obj: unknown, maxDepth = 3): string {
 			
 			// Handle objects
 			if (depth >= maxDepth) return '[Object...]';
-
-			// Try JSON.stringify first for simple objects (but with a separate seen set)
+			// Try JSON.stringify first for simple objects
 			try {
-				const tempSeen = new WeakSet<object>();
-				const jsonResult = JSON.stringify(value, function(this: unknown, key: string, val: unknown) {
-					// Handle circular references in JSON.stringify with separate tracking
-					if (typeof val === 'object' && val !== null) {
-						if (tempSeen.has(val)) return '[Circular]';
-						tempSeen.add(val);
-					}
-					return val;
-				});
+				// Use a simple JSON.stringify without a replacer for better compatibility
+				const jsonResult = JSON.stringify(value);
 				// If JSON.stringify succeeded and produced reasonable output, use it
-				if (jsonResult && jsonResult !== '{}' && !jsonResult.includes('[Circular]')) {
+				if (jsonResult && jsonResult !== '{}' && jsonResult.length < 500) {
 					return jsonResult;
 				}
 			} catch (jsonError) {
-				// JSON.stringify failed, fall back to manual approach
+				// JSON.stringify failed (circular reference or other issue), fall back to manual approach
 			}
 			
 			// Prioritize constructor.name if available and not a generic Object/Function
