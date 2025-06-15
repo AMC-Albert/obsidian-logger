@@ -5,7 +5,7 @@ import { getRegisteredClassName } from './class-registry';
 
 // Safe JSON stringification that handles circular references
 function safeStringify(obj: unknown, maxDepth = 3): string {
-	const seen = new WeakSet();
+	const seen = new WeakSet<object>();
 	
 	function stringifyWithCircularCheck(value: unknown, depth = 0): string {
 		// Handle primitives
@@ -34,11 +34,11 @@ function safeStringify(obj: unknown, maxDepth = 3): string {
 			
 			// Handle objects
 			if (depth >= maxDepth) return '[Object...]';
-			
+
 			// Try JSON.stringify first for simple objects (but with a separate seen set)
 			try {
-				const tempSeen = new WeakSet();
-				const jsonResult = JSON.stringify(value, (key, val) => {
+				const tempSeen = new WeakSet<object>();
+				const jsonResult = JSON.stringify(value, (key, val: unknown) => {
 					// Handle circular references in JSON.stringify with separate tracking
 					if (typeof val === 'object' && val !== null) {
 						if (tempSeen.has(val)) return '[Circular]';
