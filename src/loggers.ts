@@ -38,7 +38,7 @@ function safeStringify(obj: unknown, maxDepth = 3): string {
 			// Try JSON.stringify first for simple objects (but with a separate seen set)
 			try {
 				const tempSeen = new WeakSet<object>();
-				const jsonResult = JSON.stringify(value, (key, val: unknown) => {
+				const jsonResult = JSON.stringify(value, function(this: unknown, key: string, val: unknown) {
 					// Handle circular references in JSON.stringify with separate tracking
 					if (typeof val === 'object' && val !== null) {
 						if (tempSeen.has(val)) return '[Circular]';
